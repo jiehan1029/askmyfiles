@@ -1,0 +1,12 @@
+version: '2'
+services:
+  backend:
+    restart: always
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      - ./backend/app:/app/app
+    ports:
+      - 8000:8000
+
