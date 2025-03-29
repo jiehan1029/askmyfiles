@@ -1,0 +1,139 @@
+from dotenv import load_dotenv
+from typing import Any
+from haystack.components.writers import DocumentWriter
+from haystack.components.converters import MarkdownToDocument, PyPDFToDocument, TextFileToDocument
+from haystack.components.preprocessors import DocumentSplitter, DocumentCleaner
+from haystack.components.routers import FileTypeRouter
+from haystack.components.joiners import DocumentJoiner
+from haystack import Pipeline
+from haystack.components.embedders import (
+    SentenceTransformersDocumentEmbedder,
+    SentenceTransformersTextEmbedder
+)
+from app.services.document_stores import (
+    IN_MEMORY_DOCUMENT_STORE
+)
+from haystack.components.retrievers.in_memory import InMemoryEmbeddingRetriever
+from haystack.components.generators.chat import HuggingFaceAPIChatGenerator
+from haystack.dataclasses import ChatMessage
+from haystack.utils import Secret
+from haystack.utils.hf import HFGenerationAPIType
+from haystack.components.builders import ChatPromptBuilder
+from haystack.components.builders import AnswerBuilder
+
+
+load_dotenv()
+
+
+def build_preprocessing_pipeline(
+        document_store: Any,
+        file_types: list[str] = ["text/plain", "text/html", "application/pdf", "text/markdown"],
+        document_embedder: Any | None = None) -> Pipeline:
+    """
+    Return an indexing pipeline that loads the document store.
+    """
+    preprocessing_pipeline = Pipeline()
+
+    text_file_converter = TextFileToDocument()
+    markdown_converter = MarkdownToDocument()
+    pdf_converter = PyPDFToDocument()
+    document_joiner = DocumentJoiner()
+    document_cleaner = DocumentCleaner()
+    document_splitter = DocumentSplitter(split_by="word", split_length=150, split_overlap=50)
+
+    file_type_router = FileTypeRouter(mime_types=file_types)
+    preprocessing_pipeline.add_component(instance=file_type_router, name="file_type_router")
+    # todo: allow customize file_types
+    # https://docs.haystack.deepset.ai/docs/converters
+    preprocessing_pipeline.add_component(instance=text_file_converter, name="text_file_converter")
+    preprocessing_pipeline.add_component(instance=markdown_converter, name="markdown_converter")
+    preprocessing_pipeline.add_component(instance=pdf_converter, name="pypdf_converter")
+    preprocessing_pipeline.add_component(instance=document_joiner, name="document_joiner")
+    preprocessing_pipeline.add_component(instance=document_cleaner, name="document_cleaner")
+    preprocessing_pipeline.add_component(instance=document_splitter, name="document_splitter")
+    if document_embedder:
+        preprocessing_pipeline.add_component(instance=document_embedder, name="document_embedder")
+    document_writer = DocumentWriter(document_store)
+    preprocessing_pipeline.add_component(instance=document_writer, name="document_writer")
+
+    preprocessing_pipeline.connect("file_type_router.text/plain", "text_file_converter.sources")
+    preprocessing_pipeline.connect("file_type_router.application/pdf", "pypdf_converter.sources")
+    preprocessing_pipeline.connect("file_type_router.text/markdown", "markdown_converter.sources")
+    preprocessing_pipeline.connect("text_file_converter", "document_joiner")
+    preprocessing_pipeline.connect("pypdf_converter", "document_joiner")
+    preprocessing_pipeline.connect("markdown_converter", "document_joiner")
+    preprocessing_pipeline.connect("document_joiner", "document_cleaner")
+    preprocessing_pipeline.connect("document_cleaner", "document_splitter")
+    if document_embedder:
+        preprocessing_pipeline.connect("document_splitter", "document_embedder")
+        preprocessing_pipeline.connect("document_embedder", "document_writer")
+    else:
+        preprocessing_pipeline.connect("document_splitter", "document_writer")
+
+    return preprocessing_pipeline
+
+
+def build_rag_pipeline(retriever, text_embedder, generator):
+    """
+    Return a RAG pipeline.
+    """
+    basic_rag_pipeline = Pipeline()
+
+    # Add components to your pipeline
+    basic_rag_pipeline.add_component("text_embedder", text_embedder)
+    basic_rag_pipeline.add_component("retriever", retriever)
+    template = [
+        ChatMessage.from_user(
+            """
+            Given the following information, answer the question.
+
+            Context:
+            {% for document in documents %}
+                {{ document.content }}
+            {% endfor %}
+
+            Question: {{question}}
+            Answer:
+            """
+        )
+    ]
+    prompt_builder = ChatPromptBuilder(template=template)
+    basic_rag_pipeline.add_component("prompt_builder", prompt_builder)
+    basic_rag_pipeline.add_component("generator", generator)
+    answer_builder = AnswerBuilder()
+    basic_rag_pipeline.add_component("answer_builder", answer_builder)
+
+    # Connect the components to each other
+    basic_rag_pipeline.connect("text_embedder.embedding", "retriever.query_embedding")
+    basic_rag_pipeline.connect("retriever", "prompt_builder")
+    basic_rag_pipeline.connect("prompt_builder.prompt", "generator.messages")
+    basic_rag_pipeline.connect("generator.replies", "answer_builder.replies")
+    # Pass retrieved documents to answer_builder
+    # (NOT generator because HuggingFaceAPIChatGenerator does not take documents as input)
+    basic_rag_pipeline.connect("retriever.documents", "answer_builder.documents")
+
+    return basic_rag_pipeline
+
+
+###
+# Global pipeline instances ready to use
+###
+
+# matching document & text embedders must use the same model
+in_memory_document_embedder = SentenceTransformersDocumentEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
+in_memory_text_embedder = SentenceTransformersTextEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
+in_memory_retriever = InMemoryEmbeddingRetriever(IN_MEMORY_DOCUMENT_STORE)
+hf_free_generator = HuggingFaceAPIChatGenerator(
+    api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,  # free version LLM
+    api_params={"model": "HuggingFaceH4/zephyr-7b-beta"},
+    token=Secret.from_env_var("HF_API_TOKEN"))
+
+IN_MEMORY_PREPROCESSING_PIPELINE = build_preprocessing_pipeline(
+    document_store=IN_MEMORY_DOCUMENT_STORE,
+    document_embedder=in_memory_document_embedder
+)
+IN_MEMORY_RAG_PIPELINE = build_rag_pipeline(
+    retriever=in_memory_retriever,
+    text_embedder=in_memory_text_embedder,
+    generator=hf_free_generator
+)

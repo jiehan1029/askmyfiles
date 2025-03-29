@@ -1,0 +1,14 @@
+{
+    // python
+    "python.analysis.autoImportCompletions": true,
+    "python.testing.pytestEnabled": true,
+    "flake8.args": [
+        "--max-line-length=150"
+    ],
+
+    // js
+    "eslint.codeAction.showDocumentation": {
+        "enable": true
+    },
+    "eslint.enable": true,
+}
