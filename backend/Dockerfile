@@ -13,4 +13,14 @@ RUN poetry install
 
 COPY app app
 
-CMD ["poetry", "run", "uvicorn", "--host", "0.0.0.0", "--port", "8000", "app.main:app", "--reload", "--reload-dir", "/app/app"]
+# Set PYTHONPATH to include the app directory for init_mongo.py to run correctly
+ENV PYTHONPATH=/app:$PYTHONPATH
+
+COPY scripts/init_mongo.py /app/scripts/init_mongo.py
+COPY scripts/docker-entrypoint.sh /app/scripts/docker-entrypoint.sh
+# Ensure the script has executable permissions
+RUN chmod +x /app/scripts/docker-entrypoint.sh
+
+ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
+
+# CMD ["poetry", "run", "uvicorn", "--host", "0.0.0.0", "--port", "8000", "app.api.main:app", "--reload"]

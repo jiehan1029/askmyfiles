@@ -82,22 +82,33 @@ def build_rag_pipeline(retriever, text_embedder, generator):
     # Add components to your pipeline
     basic_rag_pipeline.add_component("text_embedder", text_embedder)
     basic_rag_pipeline.add_component("retriever", retriever)
-    template = [
+    user_message_template = [
         ChatMessage.from_user(
             """
-            Given the following information, answer the question.
+            Given the conversation history and the provided supporting documents, give a brief answer to the question.
+            Note that supporting documents are not part of the conversation.
+            Use conversation history only if necessary.
+            If the conversation history is empty, DO NOT including them in generating the answer.
+            If question can't be answered from supporting documents, say so.
 
-            Context:
+            Conversation history:
+            {% for message in memories %}
+                {{ message.text }}
+            {% endfor %}
+
+            Supporting documents:
             {% for document in documents %}
                 {{ document.content }}
             {% endfor %}
 
-            Question: {{question}}
+            Question: {{query}}
             Answer:
             """
         )
     ]
-    prompt_builder = ChatPromptBuilder(template=template)
+    prompt_builder = ChatPromptBuilder(template=user_message_template,
+                                       variables=["query", "documents", "memories"],
+                                       required_variables=["query", "documents", "memories"])
     basic_rag_pipeline.add_component("prompt_builder", prompt_builder)
     basic_rag_pipeline.add_component("generator", generator)
     answer_builder = AnswerBuilder()
@@ -105,7 +116,7 @@ def build_rag_pipeline(retriever, text_embedder, generator):
 
     # Connect the components to each other
     basic_rag_pipeline.connect("text_embedder.embedding", "retriever.query_embedding")
-    basic_rag_pipeline.connect("retriever", "prompt_builder")
+    basic_rag_pipeline.connect("retriever.documents", "prompt_builder.documents")
     basic_rag_pipeline.connect("prompt_builder.prompt", "generator.messages")
     basic_rag_pipeline.connect("generator.replies", "answer_builder.replies")
     # Pass retrieved documents to answer_builder
