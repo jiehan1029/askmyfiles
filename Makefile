@@ -5,7 +5,7 @@ FRONTEND_DIR := frontend
 .PHONY: install_api, run_api, install_api_local, run_api_local
 
 run_backend: ## start api & mongodb in docker, this will also init db automatically
-	docker compose up
+	docker compose up -d && make run_api_local
 
 install_api_local: ## install dependencies locally
 	cd $(BACKEND_DIR) && \

@@ -11,8 +11,11 @@ from haystack.components.embedders import (
     SentenceTransformersTextEmbedder
 )
 from app.services.document_stores import (
-    IN_MEMORY_DOCUMENT_STORE
+    IN_MEMORY_DOCUMENT_STORE,
+    QDRANT_DOCUMENT_STORE
 )
+from haystack.document_stores.types import DuplicatePolicy, DocumentStore
+from app.core.configs import DOCUMENT_STORE_NAME
 from haystack.components.retrievers.in_memory import InMemoryEmbeddingRetriever
 from haystack.components.generators.chat import HuggingFaceAPIChatGenerator
 from haystack.dataclasses import ChatMessage
@@ -20,13 +23,14 @@ from haystack.utils import Secret
 from haystack.utils.hf import HFGenerationAPIType
 from haystack.components.builders import ChatPromptBuilder
 from haystack.components.builders import AnswerBuilder
+from haystack_integrations.components.retrievers.qdrant import QdrantEmbeddingRetriever
 
 
 load_dotenv()
 
 
 def build_preprocessing_pipeline(
-        document_store: Any,
+        document_store: DocumentStore,
         file_types: list[str] = ["text/plain", "text/html", "application/pdf", "text/markdown"],
         document_embedder: Any | None = None) -> Pipeline:
     """
@@ -53,7 +57,8 @@ def build_preprocessing_pipeline(
     preprocessing_pipeline.add_component(instance=document_splitter, name="document_splitter")
     if document_embedder:
         preprocessing_pipeline.add_component(instance=document_embedder, name="document_embedder")
-    document_writer = DocumentWriter(document_store)
+    # set duplicate policy to be "overwrite"
+    document_writer = DocumentWriter(document_store=document_store, policy=DuplicatePolicy.OVERWRITE)
     preprocessing_pipeline.add_component(instance=document_writer, name="document_writer")
 
     preprocessing_pipeline.connect("file_type_router.text/plain", "text_file_converter.sources")
@@ -129,22 +134,39 @@ def build_rag_pipeline(retriever, text_embedder, generator):
 ###
 # Global pipeline instances ready to use
 ###
-
 # matching document & text embedders must use the same model
-in_memory_document_embedder = SentenceTransformersDocumentEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
-in_memory_text_embedder = SentenceTransformersTextEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
 in_memory_retriever = InMemoryEmbeddingRetriever(IN_MEMORY_DOCUMENT_STORE)
-hf_free_generator = HuggingFaceAPIChatGenerator(
-    api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,  # free version LLM
-    api_params={"model": "HuggingFaceH4/zephyr-7b-beta"},
-    token=Secret.from_env_var("HF_API_TOKEN"))
-
 IN_MEMORY_PREPROCESSING_PIPELINE = build_preprocessing_pipeline(
     document_store=IN_MEMORY_DOCUMENT_STORE,
-    document_embedder=in_memory_document_embedder
+    document_embedder=SentenceTransformersDocumentEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
 )
 IN_MEMORY_RAG_PIPELINE = build_rag_pipeline(
     retriever=in_memory_retriever,
-    text_embedder=in_memory_text_embedder,
-    generator=hf_free_generator
+    text_embedder=SentenceTransformersTextEmbedder(model="sentence-transformers/all-MiniLM-L6-v2"),
+    generator=HuggingFaceAPIChatGenerator(
+        api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,  # free version LLM
+        api_params={"model": "HuggingFaceH4/zephyr-7b-beta"},
+        token=Secret.from_env_var("HF_API_TOKEN"))
 )
+
+
+qdrant_retriever = QdrantEmbeddingRetriever(document_store=QDRANT_DOCUMENT_STORE)
+QDRANT_PREPROCESSING_PIPELINE = build_preprocessing_pipeline(
+    document_store=QDRANT_DOCUMENT_STORE,
+    document_embedder=SentenceTransformersDocumentEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
+)
+QDRANT_RAG_PIPELINE = build_rag_pipeline(
+    retriever=qdrant_retriever,
+    text_embedder=SentenceTransformersTextEmbedder(model="sentence-transformers/all-MiniLM-L6-v2"),
+    generator=HuggingFaceAPIChatGenerator(
+        api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,  # free version LLM
+        api_params={"model": "HuggingFaceH4/zephyr-7b-beta"},
+        token=Secret.from_env_var("HF_API_TOKEN"))
+)
+
+
+###
+# Default selection based on config
+###
+DEFAULT_PREPROCESSING_PIPELINE = QDRANT_PREPROCESSING_PIPELINE if DOCUMENT_STORE_NAME == "qdrant" else IN_MEMORY_PREPROCESSING_PIPELINE
+DEFAULT_RAG_PIPELINE = QDRANT_RAG_PIPELINE if DOCUMENT_STORE_NAME == "qdrant" else IN_MEMORY_RAG_PIPELINE
