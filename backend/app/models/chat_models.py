@@ -38,7 +38,7 @@ class Message(Document):
     query: str | None = None   # user's question
     response: str | None = None  # bot's response
     model: Optional[str] = None  # the model used for response generation
-    finish_reason: Optional[str] = None  # why the generation stopped
+    finish_reason: Optional[str | int] = None  # why the generation stopped
     documents: Optional[list[dict]] = None  # relevant documents by retriever
     query_created_at: datetime | None = None
     response_created_at: datetime | None = None

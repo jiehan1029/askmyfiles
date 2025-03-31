@@ -23,6 +23,7 @@ from haystack.utils.hf import HFGenerationAPIType
 from haystack.components.builders import ChatPromptBuilder
 from haystack.components.builders import AnswerBuilder
 from haystack_integrations.components.retrievers.qdrant import QdrantEmbeddingRetriever
+from haystack_integrations.components.generators.google_ai import GoogleAIGeminiChatGenerator
 
 
 DOCUMENT_STORE_NAME = os.getenv("DOCUMENT_STORE_NAME")
@@ -77,7 +78,7 @@ def build_preprocessing_pipeline(
     return preprocessing_pipeline
 
 
-def build_rag_pipeline(retriever, text_embedder, generator):
+def build_rag_pipeline(retriever, text_embedder):
     """
     Return a RAG pipeline.
     """
@@ -86,6 +87,7 @@ def build_rag_pipeline(retriever, text_embedder, generator):
     # Add components to your pipeline
     basic_rag_pipeline.add_component("text_embedder", text_embedder)
     basic_rag_pipeline.add_component("retriever", retriever)
+
     user_message_template = [
         ChatMessage.from_user(
             """
@@ -115,7 +117,24 @@ def build_rag_pipeline(retriever, text_embedder, generator):
                                        variables=["query", "documents", "memories"],
                                        required_variables=["query", "documents", "memories"])
     basic_rag_pipeline.add_component("prompt_builder", prompt_builder)
+
+    # toggle between generators
+    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "hf").lower()
+    if LLM_PROVIDER == "google":
+        # https://ai.google.dev/gemini-api/docs/models
+        # https://ai.google.dev/gemini-api/docs/rate-limits
+        generator = GoogleAIGeminiChatGenerator(
+            api_key=Secret.from_env_var("GOOGLE_API_KEY"),
+            model="gemini-2.0-flash"
+        )
+    else:
+        generator = HuggingFaceAPIChatGenerator(
+            api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,  # free version LLM
+            api_params={"model": "HuggingFaceH4/zephyr-7b-beta"},
+            token=Secret.from_env_var("HF_API_TOKEN")
+        )
     basic_rag_pipeline.add_component("generator", generator)
+
     answer_builder = AnswerBuilder()
     basic_rag_pipeline.add_component("answer_builder", answer_builder)
 
@@ -142,11 +161,7 @@ IN_MEMORY_PREPROCESSING_PIPELINE = build_preprocessing_pipeline(
 )
 IN_MEMORY_RAG_PIPELINE = build_rag_pipeline(
     retriever=in_memory_retriever,
-    text_embedder=SentenceTransformersTextEmbedder(model="sentence-transformers/all-MiniLM-L6-v2"),
-    generator=HuggingFaceAPIChatGenerator(
-        api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,  # free version LLM
-        api_params={"model": "HuggingFaceH4/zephyr-7b-beta"},
-        token=Secret.from_env_var("HF_API_TOKEN"))
+    text_embedder=SentenceTransformersTextEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
 )
 
 
@@ -157,11 +172,7 @@ QDRANT_PREPROCESSING_PIPELINE = build_preprocessing_pipeline(
 )
 QDRANT_RAG_PIPELINE = build_rag_pipeline(
     retriever=qdrant_retriever,
-    text_embedder=SentenceTransformersTextEmbedder(model="sentence-transformers/all-MiniLM-L6-v2"),
-    generator=HuggingFaceAPIChatGenerator(
-        api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,  # free version LLM
-        api_params={"model": "HuggingFaceH4/zephyr-7b-beta"},
-        token=Secret.from_env_var("HF_API_TOKEN"))
+    text_embedder=SentenceTransformersTextEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
 )
 
 
