@@ -7,10 +7,7 @@ services:
   #   volumes:
   #     - ./backend/app:/app/app
   #   environment:
-  #     - LOG_LEVEL=INFO
-  #     - HF_API_TOKEN=***REMOVED***
-  #     - MONGO_DB_NAME=chat_db
-  #     - MONGO_URI=mongodb://admin:admin123@mongodb:27017
+  #     - APP_ENV=development
   #   ports:
   #     - 8000:8000
   #   depends_on:
@@ -40,10 +37,10 @@ services:
       - 6334
       - 6335
     volumes:
-      - qdrant_data:/qdrant/storage
-      - ./backend/qdrant/config/local.yaml:/qdrant/config/local.yaml  # Mount config file
-      - ./backend/qdrant/config/development.yaml:/qdrant/config/development.yaml
-      - ./backend/qdrant/config/production.yaml:/qdrant/config/production.yaml
+      - ./storage/qdrant:/qdrant/storage
+      - ./backend/config/qdrant/local.yaml:/qdrant/config/local.yaml  # Mount config file
+      - ./backend/config/qdrant/development.yaml:/qdrant/config/development.yaml
+      - ./backend/config/qdrant/production.yaml:/qdrant/config/production.yaml
     environment:
       - RUN_MODE=local
     restart: always

@@ -1,6 +1,7 @@
 ODM: beanie
-init_mongo.py: can use to add/drop collection and/or migrate schema i.e. update documents
-
-todo: switch between dotenv to other non-local env configs
-
 qdrant local dashboard: http://localhost:6333/dashboard
+
+todo: access host fs from docker for /insert_documents
+todo: handle document store backup and restore
+todo: other llm api? switch between multiple?
+todo: self host llm?

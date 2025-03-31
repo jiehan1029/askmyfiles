@@ -1,4 +1,4 @@
-from dotenv import load_dotenv
+import os
 from typing import Any
 from haystack.components.writers import DocumentWriter
 from haystack.components.converters import MarkdownToDocument, PyPDFToDocument, TextFileToDocument
@@ -15,7 +15,6 @@ from app.services.document_stores import (
     QDRANT_DOCUMENT_STORE
 )
 from haystack.document_stores.types import DuplicatePolicy, DocumentStore
-from app.core.configs import DOCUMENT_STORE_NAME
 from haystack.components.retrievers.in_memory import InMemoryEmbeddingRetriever
 from haystack.components.generators.chat import HuggingFaceAPIChatGenerator
 from haystack.dataclasses import ChatMessage
@@ -26,7 +25,7 @@ from haystack.components.builders import AnswerBuilder
 from haystack_integrations.components.retrievers.qdrant import QdrantEmbeddingRetriever
 
 
-load_dotenv()
+DOCUMENT_STORE_NAME = os.getenv("DOCUMENT_STORE_NAME")
 
 
 def build_preprocessing_pipeline(
@@ -95,6 +94,7 @@ def build_rag_pipeline(retriever, text_embedder, generator):
             Use conversation history only if necessary.
             If the conversation history is empty, DO NOT including them in generating the answer.
             If question can't be answered from supporting documents, say so.
+            Do not rewrite the query.
 
             Conversation history:
             {% for message in memories %}

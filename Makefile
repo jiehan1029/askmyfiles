@@ -17,5 +17,5 @@ install_api_local: ## install dependencies locally
 
 run_api_local: ## start backend in localhost; must have install_api completed first
 	cd $(BACKEND_DIR) && \
-	poetry run uvicorn --host 0.0.0.0 --port 8000 app.api.main:app --reload
+	APP_ENV=development poetry run uvicorn --host 0.0.0.0 --port 8000 app.api.main:app --reload
 

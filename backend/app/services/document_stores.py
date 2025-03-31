@@ -1,7 +1,18 @@
+import os
+from dotenv import load_dotenv
 from haystack.document_stores.in_memory import InMemoryDocumentStore
 from haystack_integrations.document_stores.qdrant import QdrantDocumentStore
-from app.core.configs import QDRANT_DOCUMENT_STORE_STORAGE_DIR, DOCUMENT_STORE_NAME
 from pathlib import Path
+
+
+if os.getenv("APP_ENV", "development").lower() == "development":
+    print(f'Loading dotenv for {os.getenv("APP_ENV", "development")} APP_ENV.')
+    load_dotenv()
+
+
+DOCUMENT_STORE_NAME = os.getenv("DOCUMENT_STORE_NAME")
+QDRANT_DOCUMENT_STORE_STORAGE_DIR = os.getenv("QDRANT_DOCUMENT_STORE_STORAGE_DIR")
+
 
 ###
 # Global document store instances ready to use

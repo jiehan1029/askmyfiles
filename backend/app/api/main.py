@@ -9,16 +9,17 @@ from typing import Optional
 from pathlib import Path
 from app.services.document_stores import DEFAULT_DOCUMENT_STORE
 from app.services.pipelines import DEFAULT_PREPROCESSING_PIPELINE, DEFAULT_RAG_PIPELINE
-from app.core.configs import DOCUMENT_STORE_BACKUP_DIR
 from datetime import UTC, datetime
 from app.models.chat_models import User, Message, Conversation
-from app.services.database import init_mongodb
+from app.services.database import init_mongodb, init_qdrant
 from contextlib import asynccontextmanager
 from app.api.utils import format_chat_history
-from app.core.configs import DOCUMENT_STORE_NAME
 
 
-load_dotenv()
+if os.getenv("APP_ENV", "development").lower() == "development":
+    print(f'Loading dotenv for {os.getenv("APP_ENV", "development")} APP_ENV.')
+    load_dotenv()
+
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(
@@ -26,11 +27,19 @@ logging.basicConfig(
 )
 
 
+DOCUMENT_STORE_NAME = os.getenv("DOCUMENT_STORE_NAME")
+DOCUMENT_STORE_BACKUP_DIR = os.getenv("DOCUMENT_STORE_BACKUP_DIR")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("FastAPI app is starting up.")
+
     await init_mongodb()
     print("Beanie initiated.")
+
+    init_qdrant()
+    print("Qdrant initiated.")
 
     yield
     print("FastAPI app will shut down.")
@@ -158,14 +167,22 @@ async def search_documents(request: SearchRequest):
     memories = format_chat_history(prev_messages)
 
     question = request.question
-    answer_raw = DEFAULT_RAG_PIPELINE.run(
-        data={
-            "text_embedder": {"text": question},
-            "prompt_builder": {"query": question, "memories": memories},
-            "answer_builder": {"query": question}
-        })
+    try:
+        answer_raw = DEFAULT_RAG_PIPELINE.run(
+            data={
+                "text_embedder": {"text": question},
+                "prompt_builder": {"query": question, "memories": memories},
+                "answer_builder": {"query": question}
+            })
+    except Exception as e:
+        logger.exception(e)
+        return {
+            "user_id": str(user.id),
+            "conversation_id": str(conversation.id),
+            "answer": str(e)}
+
     answer_utcnow = datetime.now(tz=UTC)
-    logger.info(f"{question=}, {answer_raw=}")
+    logger.debug(f"user_id={str(user.id)}, conversation_id={str(conversation.id)}, {answer_raw=}")
 
     top_answer = answer_raw["answer_builder"]["answers"][0]
     # extract relevant documents
@@ -188,4 +205,4 @@ async def search_documents(request: SearchRequest):
     return {
         "user_id": str(user.id),
         "conversation_id": str(conversation.id),
-        "answer": answer_raw}
+        "answer": top_answer.data}
