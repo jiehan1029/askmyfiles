@@ -37,7 +37,7 @@ services:
       - 6334
       - 6335
     volumes:
-      - ./storage/qdrant:/qdrant/storage
+      - ./storage/qdrant:/qdrant/storage  # mount persisted volume
       - ./backend/config/qdrant/local.yaml:/qdrant/config/local.yaml  # Mount config file
       - ./backend/config/qdrant/development.yaml:/qdrant/config/development.yaml
       - ./backend/config/qdrant/production.yaml:/qdrant/config/production.yaml

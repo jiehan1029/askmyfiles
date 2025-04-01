@@ -1843,6 +1843,39 @@ files = [
 ]
 
 [[package]]
+name = "ollama"
+version = "0.4.7"
+description = "The official Python client for Ollama."
+optional = false
+python-versions = "<4.0,>=3.8"
+groups = ["main"]
+files = [
+    {file = "ollama-0.4.7-py3-none-any.whl", hash = "sha256:85505663cca67a83707be5fb3aeff0ea72e67846cea5985529d8eca4366564a1"},
+    {file = "ollama-0.4.7.tar.gz", hash = "sha256:891dcbe54f55397d82d289c459de0ea897e103b86a3f1fad0fdb1895922a75ff"},
+]
+
+[package.dependencies]
+httpx = ">=0.27,<0.29"
+pydantic = ">=2.9.0,<3.0.0"
+
+[[package]]
+name = "ollama-haystack"
+version = "2.3.0"
+description = "An integration between the Ollama LLM framework and Haystack"
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "ollama_haystack-2.3.0-py3-none-any.whl", hash = "sha256:392734f6128f3253f4ebee4bfd446fa72a5ba01601e8d7c255c69b1ccb46b4a9"},
+    {file = "ollama_haystack-2.3.0.tar.gz", hash = "sha256:b9038005dd0fcee778706d3c16eefa078711c801ee226a539e44d2b660b8214f"},
+]
+
+[package.dependencies]
+haystack-ai = "*"
+ollama = ">=0.4.0"
+pydantic = "*"
+
+[[package]]
 name = "openai"
 version = "1.69.0"
 description = "The official Python library for the openai API"
@@ -3476,4 +3509,4 @@ standard = ["colorama (>=0.4) ; sys_platform == \"win32\"", "httptools (>=0.6.3)
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.13"
-content-hash = "bd52f39c39b56adb95d2f43381809e29a5d91d51a551b67ed5f931a74454d843"
+content-hash = "515a0e6c536bb1999225d16f01af7791a397099152e5c692dd0f397481ffdfe3"

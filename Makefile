@@ -2,10 +2,21 @@ BACKEND_DIR := backend
 FRONTEND_DIR := frontend
 
 
-.PHONY: install_api, run_api, install_api_local, run_api_local
+.PHONY: run_backend, run_ollama, run_api_local, stop_backend, stop_ollama, install_api_local
 
-run_backend: ## start api & mongodb in docker, this will also init db automatically
-	docker compose up -d && make run_api_local
+run_backend: ## start api & databases in docker, this will also init db automatically
+	docker compose -d -f docker-compose.yaml up && make run_api_local
+
+stop_backend:  ## stop all api, databases and ollama
+	docker compose -f docker-compose.yaml down && make stop_ollama
+
+run_ollama: ## start ollama and ollama-webui in docker
+	docker compose -d -f docker-compose-ollama.yaml up
+
+stop_ollama:
+	docker compose -f docker-compose-ollama.yaml down
+
+
 
 install_api_local: ## install dependencies locally
 	cd $(BACKEND_DIR) && \

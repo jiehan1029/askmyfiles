@@ -24,6 +24,7 @@ from haystack.components.builders import ChatPromptBuilder
 from haystack.components.builders import AnswerBuilder
 from haystack_integrations.components.retrievers.qdrant import QdrantEmbeddingRetriever
 from haystack_integrations.components.generators.google_ai import GoogleAIGeminiChatGenerator
+from haystack_integrations.components.generators.ollama import OllamaChatGenerator
 
 
 DOCUMENT_STORE_NAME = os.getenv("DOCUMENT_STORE_NAME")
@@ -119,19 +120,24 @@ def build_rag_pipeline(retriever, text_embedder):
     basic_rag_pipeline.add_component("prompt_builder", prompt_builder)
 
     # toggle between generators
-    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "hf").lower()
-    if LLM_PROVIDER == "google":
+    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "google").lower()
+    if LLM_PROVIDER == "ollama":
+        generator = OllamaChatGenerator(
+            url=os.getenv("OLLAMA_LLM_BASE_URL"),
+            model=os.getenv("OLLAMA_LLM_MODEL")
+        )
+    elif LLM_PROVIDER == "hf":
+        generator = HuggingFaceAPIChatGenerator(
+            api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,  # free version LLM
+            api_params={"model": "HuggingFaceH4/zephyr-7b-beta"},
+            token=Secret.from_env_var("HF_API_TOKEN")
+        )
+    else:
         # https://ai.google.dev/gemini-api/docs/models
         # https://ai.google.dev/gemini-api/docs/rate-limits
         generator = GoogleAIGeminiChatGenerator(
             api_key=Secret.from_env_var("GOOGLE_API_KEY"),
             model="gemini-2.0-flash"
-        )
-    else:
-        generator = HuggingFaceAPIChatGenerator(
-            api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,  # free version LLM
-            api_params={"model": "HuggingFaceH4/zephyr-7b-beta"},
-            token=Secret.from_env_var("HF_API_TOKEN")
         )
     basic_rag_pipeline.add_component("generator", generator)
 

@@ -27,10 +27,6 @@ logging.basicConfig(
 )
 
 
-DOCUMENT_STORE_NAME = os.getenv("DOCUMENT_STORE_NAME")
-DOCUMENT_STORE_BACKUP_DIR = os.getenv("DOCUMENT_STORE_BACKUP_DIR")
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("FastAPI app is starting up.")
@@ -82,15 +78,13 @@ async def create_user(request: CreateUserRequest):
 @app.get("/info")
 async def get_app_info(request: Request):
     return {
-        "document_store": DOCUMENT_STORE_NAME,
+        "document_store": os.getenv("DOCUMENT_STORE_NAME"),
         "num_documents": DEFAULT_DOCUMENT_STORE.count_documents()
     }
 
 
 class InsertDocumentsRequest(BaseModel):
     directory: str
-    local_backup: bool = False
-    backup_name: str | None = None
 
 
 @app.post("/insert_documents")
@@ -99,46 +93,7 @@ async def insert_documents_into_store(request: InsertDocumentsRequest):
     logger.info(f"{output_dir=}")
 
     DEFAULT_PREPROCESSING_PIPELINE.run({"file_type_router": {"sources": list(output_dir.glob("**/*"))}})
-
-    # save document store to local backup file
-    backup_dir = None
-    if request.local_backup:
-        if request.backup_name:
-            backup_dir = Path(DOCUMENT_STORE_BACKUP_DIR + f"/{request.backup_name}.json").expanduser()
-        else:
-            backup_dir = Path(DOCUMENT_STORE_BACKUP_DIR + f"/my_document_store_{int(datetime.now(tz=UTC).timestamp())}.json").expanduser()
-        DEFAULT_DOCUMENT_STORE.save_to_disk(str(backup_dir))
-        logger.info(f'Saved to backup directory: {backup_dir}')
-
-    return {"inserted": DEFAULT_DOCUMENT_STORE.count_documents(), "local_backup": request.local_backup, "backup_dir": backup_dir}
-
-
-class RestoreDocumentsRequest(BaseModel):
-    backup_name: str
-
-
-@app.post("/restore_documents")
-async def restore_documents_from_backup(request: RestoreDocumentsRequest):
-    if not DOCUMENT_STORE_NAME or DOCUMENT_STORE_NAME == "in-memory":
-        raise HTTPException(status_code=400, detail={"error": f"Not supported for current document store ({DOCUMENT_STORE_NAME})."})
-
-    backup_dir = Path(DOCUMENT_STORE_BACKUP_DIR + f"/{request.backup_name}.json").expanduser()
-    if backup_dir.exists():
-        logger.info(f"File exists: {backup_dir}")
-    else:
-        logger.info(f"File does not exist: {backup_dir}")
-        return {"error": "File does not exist."}
-
-    before_count = DEFAULT_DOCUMENT_STORE.count_documents()
-    logger.info(f'before restoration, store has {before_count} documents. will restore from {backup_dir}')
-
-    DEFAULT_DOCUMENT_STORE.load_from_disk(str(backup_dir))
-    after_count = DEFAULT_DOCUMENT_STORE.count_documents()
-    logger.info(f'after restoration, store has {after_count} documents.')
-    return {
-        "restored": DEFAULT_DOCUMENT_STORE.count_documents(),
-        "from_backup": backup_dir
-    }
+    return {"inserted": DEFAULT_DOCUMENT_STORE.count_documents()}
 
 
 class SearchRequest(BaseModel):
