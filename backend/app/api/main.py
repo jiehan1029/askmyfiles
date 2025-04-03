@@ -17,7 +17,7 @@ from app.api.utils import format_chat_history
 
 
 if os.getenv("APP_ENV", "development").lower() == "development":
-    print(f'Loading dotenv for {os.getenv("APP_ENV", "development")} APP_ENV.')
+    print(f'main: Loading dotenv for {os.getenv("APP_ENV", "development")} APP_ENV.')
     load_dotenv()
 
 
@@ -84,13 +84,18 @@ async def get_app_info(request: Request):
 
 
 class InsertDocumentsRequest(BaseModel):
-    directory: str
+    directory: str  # example: "~/Desktop"
 
 
 @app.post("/insert_documents")
 async def insert_documents_into_store(request: InsertDocumentsRequest):
     output_dir = Path(request.directory).expanduser()
-    logger.info(f"{output_dir=}")
+    home_dir = os.path.expanduser("~")
+    if os.name == "nt":
+        home_dir = home_dir.replace("\\", "/")
+    if os.getenv("HOST_HOME_DIR"):
+        output_dir = output_dir.replace(home_dir, "/host/home")
+    logger.info(f"{output_dir=} for {os.name=} and {request.directory=}")
 
     DEFAULT_PREPROCESSING_PIPELINE.run({"file_type_router": {"sources": list(output_dir.glob("**/*"))}})
     return {"inserted": DEFAULT_DOCUMENT_STORE.count_documents()}

@@ -7,6 +7,7 @@ WORKDIR /app
 
 COPY pyproject.toml ./
 COPY poetry.lock ./
+COPY .env ./
 
 RUN pip install poetry
 RUN poetry install
@@ -22,5 +23,3 @@ COPY scripts/docker-entrypoint.sh /app/scripts/docker-entrypoint.sh
 RUN chmod +x /app/scripts/docker-entrypoint.sh
 
 ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
-
-# CMD ["poetry", "run", "uvicorn", "--host", "0.0.0.0", "--port", "8000", "app.api.main:app", "--reload"]

@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 if os.getenv("APP_ENV", "development").lower() == "development":
-    print(f'Loading dotenv for {os.getenv("APP_ENV", "development")} APP_ENV.')
+    print(f'document_stores: Loading dotenv for {os.getenv("APP_ENV", "development")} APP_ENV.')
     load_dotenv()
 
 

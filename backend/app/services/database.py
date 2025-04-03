@@ -13,7 +13,8 @@ QDRANT_COLLECTION_NAME = os.getenv("QDRANT_COLLECTION_NAME", "documents")
 QDRANT_VECTOR_SIZE = os.getenv("QDRANT_VECTOR_SIZE", 384)
 
 
-async def init_mongodb() -> tuple:
+async def init_mongodb():
+    print(f"{MONGO_URI=}")
     client = AsyncIOMotorClient(MONGO_URI)
     db = client[DB_NAME]
     await init_beanie(database=db, document_models=[User, Conversation, Message])
@@ -21,6 +22,7 @@ async def init_mongodb() -> tuple:
 
 
 def init_qdrant():
+    print(f"{QDRANT_URI=}")
     client = QdrantClient(url=QDRANT_URI)
     if client.collection_exists(QDRANT_COLLECTION_NAME):
         print(f"Qdrant collection {QDRANT_COLLECTION_NAME} already registered.")
