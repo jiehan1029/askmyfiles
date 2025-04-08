@@ -6,14 +6,15 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
-from pathlib import Path
 from app.services.document_stores import DEFAULT_DOCUMENT_STORE
-from app.services.pipelines import DEFAULT_PREPROCESSING_PIPELINE, DEFAULT_RAG_PIPELINE
+from app.services.pipelines import DEFAULT_RAG_PIPELINE
 from datetime import UTC, datetime
 from app.models.chat_models import User, Message, Conversation
+from app.models.status_models import SyncStatus
 from app.services.database import init_mongodb, init_qdrant
 from contextlib import asynccontextmanager
 from app.api.utils import format_chat_history
+from app.services.celery import sync_folder
 
 
 if os.getenv("APP_ENV", "development").lower() == "development":
@@ -89,16 +90,22 @@ class InsertDocumentsRequest(BaseModel):
 
 @app.post("/insert_documents")
 async def insert_documents_into_store(request: InsertDocumentsRequest):
-    output_dir = Path(request.directory).expanduser()
-    home_dir = os.path.expanduser("~")
-    if os.name == "nt":
-        home_dir = home_dir.replace("\\", "/")
-    if os.getenv("HOST_HOME_DIR"):
-        output_dir = output_dir.replace(home_dir, "/host/home")
-    logger.info(f"{output_dir=} for {os.name=} and {request.directory=}")
-
-    DEFAULT_PREPROCESSING_PIPELINE.run({"file_type_router": {"sources": list(output_dir.glob("**/*"))}})
-    return {"inserted": DEFAULT_DOCUMENT_STORE.count_documents()}
+    sync_status = await SyncStatus(
+        folder_path=request.directory,
+        total_files=0,
+        processed_files=0,
+        progress_percent=0,
+        status="PENDING",
+        task_id=None,
+    ).insert()
+    task = sync_folder.delay(folder_path=request.directory, sync_status_id=str(sync_status.id))
+    # then store the task ID back in Mongo
+    await sync_status.set({"task_id": task.id, "status": "IN_PROGRESS"})
+    return {
+        "directory": request.directory,
+        "status": "IN_PROGRESS",
+        "task_id": task.id
+    }
 
 
 class SearchRequest(BaseModel):

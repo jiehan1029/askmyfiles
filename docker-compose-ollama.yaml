@@ -29,10 +29,3 @@ services:
     extra_hosts:
       - host.docker.internal:host-gateway
     restart: unless-stopped
-
-
-volumes:
-  mongodb_data:
-    driver: local
-  qdrant_data:
-    driver: local

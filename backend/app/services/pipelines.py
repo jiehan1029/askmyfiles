@@ -1,3 +1,7 @@
+"""
+Haystack pipelines
+"""
+
 import os
 from typing import Any
 from haystack.components.writers import DocumentWriter

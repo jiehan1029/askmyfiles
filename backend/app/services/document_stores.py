@@ -1,3 +1,7 @@
+"""
+Haystack document stores
+"""
+
 import os
 from dotenv import load_dotenv
 from haystack.document_stores.in_memory import InMemoryDocumentStore

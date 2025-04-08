@@ -1,7 +1,12 @@
+"""
+MongoDB and Qdrant
+"""
+
 import os
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
 from app.models.chat_models import User, Conversation, Message
+from app.models.status_models import SyncStatus
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams
 
@@ -17,7 +22,7 @@ async def init_mongodb():
     print(f"{MONGO_URI=}")
     client = AsyncIOMotorClient(MONGO_URI)
     db = client[DB_NAME]
-    await init_beanie(database=db, document_models=[User, Conversation, Message])
+    await init_beanie(database=db, document_models=[User, Conversation, Message, SyncStatus])
     return client, db
 
 
