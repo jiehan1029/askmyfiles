@@ -10,8 +10,8 @@ from app.services.document_stores import DEFAULT_DOCUMENT_STORE
 from app.services.pipelines import DEFAULT_RAG_PIPELINE
 from datetime import UTC, datetime
 from app.models.chat_models import User, Message, Conversation
-from app.models.status_models import SyncStatus
-from app.services.database import init_mongodb, init_qdrant
+from app.models.status_models import SyncStatusBeanie
+from app.services.database import init_mongodb_beanie, init_qdrant
 from contextlib import asynccontextmanager
 from app.api.utils import format_chat_history
 from app.services.celery import sync_folder
@@ -32,7 +32,7 @@ logging.basicConfig(
 async def lifespan(app: FastAPI):
     print("FastAPI app is starting up.")
 
-    await init_mongodb()
+    await init_mongodb_beanie()
     print("Beanie initiated.")
 
     init_qdrant()
@@ -90,7 +90,7 @@ class InsertDocumentsRequest(BaseModel):
 
 @app.post("/insert_documents")
 async def insert_documents_into_store(request: InsertDocumentsRequest):
-    sync_status = await SyncStatus(
+    sync_status = await SyncStatusBeanie(
         folder_path=request.directory,
         total_files=0,
         processed_files=0,
@@ -104,7 +104,8 @@ async def insert_documents_into_store(request: InsertDocumentsRequest):
     return {
         "directory": request.directory,
         "status": "IN_PROGRESS",
-        "task_id": task.id
+        "task_id": task.id,
+        "sync_status_id": str(sync_status.id)
     }
 
 

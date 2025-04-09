@@ -125,6 +125,30 @@ files = [
 ]
 
 [[package]]
+name = "bunnet"
+version = "1.3.0"
+description = "Synchronous Python ODM for MongoDB"
+optional = false
+python-versions = ">=3.7,<4.0"
+groups = ["main"]
+files = [
+    {file = "bunnet-1.3.0-py3-none-any.whl", hash = "sha256:feaf0e3a061e98411110bcc02a5f4fbf7e7483f575dddda748888e293fb3c1a1"},
+    {file = "bunnet-1.3.0.tar.gz", hash = "sha256:5e4aeee9c30ac7fe3968ad057398349d8c3fb886c5b568980266fc4e061c3a8f"},
+]
+
+[package.dependencies]
+click = ">=7"
+lazy-model = "0.2.0"
+pydantic = ">=1.10,<3.0"
+pymongo = ">=3"
+toml = "*"
+
+[package.extras]
+doc = ["Markdown (>=3.3)", "Pygments (>=2.8.0)", "jinja2 (>=3.0.3)", "mkdocs (>=1.4)", "mkdocs-material (>=9.0)", "pydoc-markdown (>=4.8)"]
+queue = ["beanie-batteries-queue (>=0.2)"]
+test = ["asgi-lifespan (>=1.0.1)", "dnspython (>=2.1.0)", "fastapi (>=0.100)", "flake8 (>=3)", "httpx (>=0.23.0)", "pre-commit (>=2.3.0)", "pydantic-extra-types (>=2)", "pydantic-settings (>=2)", "pydantic[email]", "pyright (>=0)", "pytest (>=6.0.0)", "pytest-asyncio (>=0.21.0)", "pytest-cov (>=2.8.1)"]
+
+[[package]]
 name = "cachetools"
 version = "5.5.2"
 description = "Extensible memoizing collections and decorators"
@@ -3747,4 +3771,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.13"
-content-hash = "49bb70d03ba853ce3d1777fa8a5263bbd5d863269d46f6c89d16240886833247"
+content-hash = "cf2623eec263e8d45cd8622e493caba8634ed5d13179674da37300fd33c0d827"

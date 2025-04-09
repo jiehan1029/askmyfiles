@@ -3,15 +3,15 @@ Process the given local folders, add embedding and save them into the document s
 """
 import os
 import logging
-import asyncio
 from dotenv import load_dotenv
 from datetime import datetime, UTC
-from beanie import PydanticObjectId
 from pathlib import Path
 from celery import Celery
+from bunnet import PydanticObjectId
+from celery.signals import worker_process_init
 from app.services.pipelines import DEFAULT_PREPROCESSING_PIPELINE
-from app.models.status_models import SyncStatus
-from app.services.database import init_mongodb, init_qdrant
+from app.models.status_models import SyncStatusBunnet
+from app.services.database import init_mongodb_bunnet, init_qdrant
 
 
 if os.getenv("APP_ENV", "development").lower() == "development":
@@ -29,46 +29,29 @@ app = Celery('sync_app', broker=os.getenv("REDIS_URL"))
 app.conf.result_backend = os.getenv("REDIS_URL")
 
 
-async def init_celery():
+@worker_process_init.connect
+def init_celery(**kwargs):
     """Initialize data stores globally for all tasks."""
-    await init_mongodb()
-    print("Beanie initiated.")
+    init_mongodb_bunnet()
+    print("Bunnet initiated.")
     init_qdrant()
     print("Qdrant initiated.")
 
 
-def on_after_configure(sender, **kwargs):
-    """This function is called after Celery configuration."""
-    # make sure there is a running event loop first
-    loop = asyncio.get_event_loop()
-    if loop.is_running():
-        # If event loop is already running, create a task
-        asyncio.create_task(init_celery())
-    else:
-        # If no event loop is running, run a new one
-        asyncio.run(init_celery())  # This creates and runs a new event loop
-
-
-# Call the initialization function during worker startup
-app.on_after_configure.connect(on_after_configure)
-
-
 @app.task(bind=True)
 def sync_folder(self, folder_path: str, sync_status_id: str):
-    return asyncio.run(_sync_folder_impl(self, folder_path, sync_status_id))
+    """Sync documents in the given folder"""
 
-
-async def _sync_folder_impl(self, folder_path: str, sync_status_id: str):
-    """Sync documents asynchronously."""
-
-    logger.info(f"sync_folder task ID is: {self.request.id}")
+    logger.info(f"sync_folder task ID is: {self.request.id}, {sync_status_id=}")
 
     output_dir = Path(folder_path).expanduser()
     home_dir = os.path.expanduser("~")
     if os.name == "nt":
         home_dir = home_dir.replace("\\", "/")
     if os.getenv("HOST_HOME_DIR"):
-        output_dir = output_dir.replace(home_dir, "/host/home")
+        output_dir_str = str(output_dir)
+        output_dir_str = output_dir_str.replace(home_dir, "/host/home")
+        output_dir = Path(output_dir_str)
     logger.info(f"{output_dir=} for {os.name=} and {folder_path=}")
 
     results = []
@@ -96,27 +79,25 @@ async def _sync_folder_impl(self, folder_path: str, sync_status_id: str):
         # Only update DB at every 10% milestone
         if percent >= milestone + PROGRESS_INTERVAL or percent == 100:
             milestone = percent
-            await SyncStatus.find_one(SyncStatus.id == sync_status_id).update({
-                "$set": {
-                    "processed_files": current,
-                    "progress_percent": percent,
-                    "status": "IN_PROGRESS",
-                    "last_synced_at": datetime.now(tz=UTC),
-                }
+            sync_status = SyncStatusBunnet.find_one(SyncStatusBunnet.id == PydanticObjectId(sync_status_id)).run()
+            sync_status.set({
+                "total_files": file_count,
+                "processed_files": current,
+                "progress_percent": percent,
+                "status": "IN_PROGRESS",
+                "last_synced_at": datetime.now(tz=UTC),
             })
 
     # Final update on complete
-    # await SyncStatus.find_one(SyncStatus.id == sync_status_id).update({
-    sync_status = await SyncStatus.get(sync_status_id)
-    if sync_status:
-        await sync_status.update({
-            "$set": {
-                "processed_files": file_count,
-                "progress_percent": 100,
-                "status": "COMPLETE",
-                "last_synced_at": datetime.now(tz=UTC),
-            }
-        })
+    SyncStatusBunnet.find_one(SyncStatusBunnet.id == PydanticObjectId(sync_status_id)).update({
+        "$set": {
+            "total_files": file_count,
+            "processed_files": file_count,
+            "progress_percent": 100,
+            "status": "COMPLETE",
+            "last_synced_at": datetime.now(tz=UTC),
+        }
+    }).run()
 
     summary = {"processed": file_count, "task_id": self.request.id, "status": "complete"}
     logger.info(summary)

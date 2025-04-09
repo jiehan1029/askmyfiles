@@ -1,13 +1,13 @@
 import asyncio
 from datetime import UTC, datetime
 from app.models.chat_models import User
-from app.services.database import init_mongodb
+from app.services.database import init_mongodb_beanie
 
 
 # Function to initialize database
 async def init_db():
     try:
-        client, db = await init_mongodb()
+        client, db = await init_mongodb_beanie()
 
         db_collection_names = await db.list_collection_names()
         print(f"Found {db_collection_names=}")

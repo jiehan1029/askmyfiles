@@ -6,12 +6,8 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./backend/app:/app/app
-      - ./storage/qdrant:/storage/qdrant
-      - ~/:/host/home  # Mount the entire home directory on Unix-like systems
-      # - /c/Users/YourUsername:/host/home  # Mount the user's home directory on Windows
     environment:
       - APP_ENV=development
-      - HOST_HOME_DIR=/host/home
       - REDIS_URL=redis://host.docker.internal:6379/0
       - MONGO_URI=mongodb://admin:admin123@mongodb:27017
       - MONGO_DB_NAME=chat_db
@@ -76,15 +72,19 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    command: ["poetry", "run", "celery", "-A", "app.services.celery.app", "worker", "--loglevel=info"]
+    command: ["poetry", "run", "celery", "-A", "app.services.celery.app", "worker", "--loglevel=info", "--concurrency=2"]
     # Override the ENTRYPOINT here, so it runs the celery worker instead
-    entrypoint: ["/bin/sh", "-c", "poetry run celery -A app.services.celery.app worker --loglevel=info"]
+    entrypoint: ["/bin/sh", "-c", "poetry run celery -A app.services.celery.app worker --loglevel=info", "--concurrency=2"]
     depends_on:
       - redis
     volumes:
       - ./backend/app:/app/app
+      - ./storage/qdrant:/qdrant/storage  # align with qdrant storage mounted
+      - ~/:/host/home  # Mount the entire home directory on Unix-like systems
+      # - /c/Users/YourUsername:/host/home  # Mount the user's home directory on Windows
     environment:
       - APP_ENV=development
+      - HOST_HOME_DIR=/host/home
       - REDIS_URL=redis://host.docker.internal:6379/0
       - MONGO_URI=mongodb://admin:admin123@mongodb:27017
       - MONGO_DB_NAME=chat_db

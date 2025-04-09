@@ -30,6 +30,8 @@ RUN chmod +x /app/scripts/docker-entrypoint.sh
 # Set permissions and switch user
 RUN chown -R appuser:appuser /app
 RUN chown -R appuser:appuser /home/appuser
+# Ensure /storage has the right permissions for the container user
+RUN mkdir -p /storage && chown -R appuser:appuser /storage
 USER appuser
 
 # For starting the backend
