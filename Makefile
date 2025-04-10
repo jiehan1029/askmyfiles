@@ -4,10 +4,10 @@ FRONTEND_DIR := frontend
 
 .PHONY: run_backend, run_ollama, run_api_local, stop_backend, stop_ollama, install_api_local
 
-run_backend: ## start api & databases in docker
+run_backend: ## start api & databases & celery worker in docker
 	docker compose -f docker-compose.yaml up -d
 
-stop_backend:  ## stop all api, databases and ollama
+stop_backend:  ## stop all backend services
 	docker compose -f docker-compose.yaml down && make stop_ollama
 
 run_ollama: ## start ollama and ollama-webui in docker
