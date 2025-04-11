@@ -12,7 +12,7 @@ export function AppSideView() {
         <Sidebar>
         <SidebarHeader />
         <SidebarContent>
-            test content here
+            [[[[test content here]]]]
         </SidebarContent>
         <SidebarFooter />
         </Sidebar>

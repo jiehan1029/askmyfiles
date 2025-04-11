@@ -12,12 +12,17 @@
     "@radix-ui/react-separator": "^1.1.3",
     "@radix-ui/react-slot": "^1.2.0",
     "@radix-ui/react-tooltip": "^1.2.0",
+    "@tailwindcss/postcss": "^4.1.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "install": "^0.13.0",
     "lucide-react": "^0.487.0",
+    "npm": "^11.3.0",
+    "postcss": "^8.5.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "^3.2.0",
+    "tailwindcss": "^4.1.3",
     "tw-animate-css": "^1.2.5"
   },
   "devDependencies": {
@@ -26,8 +31,6 @@
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.21",
-    "postcss": "^8.5.3",
-    "tailwindcss": "^4.1.3",
     "typescript": "^5.8.2",
     "vite": "^6.2.3"
   }
