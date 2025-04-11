@@ -7,15 +7,17 @@ frontend/
 │   ├── preload/               # Preload script
 │   └── renderer/              # UI: React + Tailwind + shadcn-ui
 │       ├── package.json       # UI dependencies
-│       ├── vite.config.ts     # Vite config for renderer only
-│       ├── tsconfig.json      # Local TypeScript config (extends root)
+│       ├──NO vite.config.ts     # Vite config for renderer only
+│       ├──NO tsconfig.json      # Local TypeScript config (extends root)
 │       └── index.html, main.tsx, etc.
 ├── electron.vite.config.ts    
 ├── package.json               # Acts as orchestrator: runs both processes
 ├── tsconfig.json              # Root TS config with paths for all 3 parts
 
 
+use different package.json in root frontend/ and renderer/ but share same vite config file and tsconfig files -- that will make aliases and import resolution much easier.
 
+also put the shadcn components into a shared folder under /src, this will make import alias resolution much easier too.
 
 
 

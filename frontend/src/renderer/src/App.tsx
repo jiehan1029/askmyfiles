@@ -1,5 +1,7 @@
 import Versions from './components/Versions'
 import electronLogo from './assets/electron.svg'
+import AppSideView, { SidebarProvider, SidebarTrigger } from './layout/SideView'
+// import { SidebarProvider, SidebarTrigger } from "~/sidebar"
 
 function App(): JSX.Element {
   const ipcHandle = (): void => window.electron.ipcRenderer.send('ping')
@@ -28,6 +30,14 @@ function App(): JSX.Element {
         </div>
       </div>
       <Versions></Versions>
+      <SidebarProvider>
+
+        <AppSideView />
+        <div>
+          TypeScript TypeScript
+          <SidebarTrigger />
+        </div>
+      </SidebarProvider>
     </>
   )
 }

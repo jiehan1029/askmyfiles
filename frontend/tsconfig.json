@@ -13,7 +13,8 @@
     "jsx": "preserve",
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/renderer/*"]
+      // "@/*": ["src/renderer/*"]
+      "@/*": ["src/renderer/src/*"]
     }
   },
   "exclude": ["dist", "node_modules"]
