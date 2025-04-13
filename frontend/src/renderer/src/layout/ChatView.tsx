@@ -3,32 +3,76 @@ import { ChatBubble, ChatBubbleMessage, ChatBubbleAvatar } from '@renderer/share
 import { ChatInput } from '@renderer/shared/components/ui/chat/chat-input'
 import { Button } from '@renderer/shared/components/ui/button'
 import { CornerDownLeft } from 'lucide-react';
+import RobotLogo from '@renderer/assets/logo.png'
+import FacePic from '@renderer/assets/face_2.png'
 
 export function AppChatView() {
     return <>
-        <ChatMessageList>
+        <ChatMessageList className="overflow-scroll pb-[120px]">
             <ChatBubble variant='sent'>
-                <ChatBubbleAvatar fallback='US' />
+                <ChatBubbleAvatar src={FacePic} fallback='US' />
                 <ChatBubbleMessage variant='sent'>
                 Hello, how has your day been? I hope you are doing well.
                 </ChatBubbleMessage>
             </ChatBubble>
 
             <ChatBubble variant='received'>
-                <ChatBubbleAvatar fallback='AI' />
+                <ChatBubbleAvatar src={RobotLogo} fallback='AI' />
+                <ChatBubbleMessage variant='received'>
+                Hi, I am doing well, thank you for asking. How can I help you today?
+                </ChatBubbleMessage>
+            </ChatBubble>
+
+            <ChatBubble variant='sent'>
+                <ChatBubbleAvatar src={FacePic} fallback='US' />
+                <ChatBubbleMessage variant='sent'>
+                Hello, how has your day been? I hope you are doing well.
+                </ChatBubbleMessage>
+            </ChatBubble>
+
+            <ChatBubble variant='sent'>
+                <ChatBubbleAvatar src={FacePic} fallback='US' />
+                <ChatBubbleMessage variant='sent'>
+                Hello, how has your day been? I hope you are doing well.
+                </ChatBubbleMessage>
+            </ChatBubble>
+
+            <ChatBubble variant='received'>
+                <ChatBubbleAvatar src={RobotLogo} fallback='AI' />
                 <ChatBubbleMessage variant='received'>
                 Hi, I am doing well, thank you for asking. How can I help you today?
                 </ChatBubbleMessage>
             </ChatBubble>
 
             <ChatBubble variant='received'>
-                <ChatBubbleAvatar fallback='AI' />
+                <ChatBubbleAvatar src={RobotLogo} fallback='AI' />
+                <ChatBubbleMessage variant='received'>
+                Hi, I am doing well, thank you for asking. How can I help you today?
+                </ChatBubbleMessage>
+            </ChatBubble>
+
+            <ChatBubble variant='sent'>
+                <ChatBubbleAvatar src={FacePic} fallback='US' />
+                <ChatBubbleMessage variant='sent'>
+                Hello, how has your day been? I hope you are doing well.
+                </ChatBubbleMessage>
+            </ChatBubble>
+
+            <ChatBubble variant='received'>
+                <ChatBubbleAvatar src={RobotLogo} fallback='AI' />
+                <ChatBubbleMessage variant='received'>
+                Hi, I am doing well, thank you for asking. How can I help you today?
+                </ChatBubbleMessage>
+            </ChatBubble>
+
+            <ChatBubble variant='received'>
+                <ChatBubbleAvatar src={RobotLogo} fallback='AI' />
                 <ChatBubbleMessage isLoading />
             </ChatBubble>
         </ChatMessageList>
 
         <form
-            className="relative rounded-lg border bg-background focus-within:ring-1 focus-within:ring-ring p-1"
+            className="sticky bottom-0 rounded-lg border bg-background focus-within:ring-1 focus-within:ring-ring p-1"
         >
             <ChatInput
                 placeholder="Type your message here..."

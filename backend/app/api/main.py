@@ -45,7 +45,8 @@ app = FastAPI(lifespan=lifespan)
 
 origins = [
     "http://localhost:80",
-    "http://localhost:3000"
+    "http://localhost:3000",
+    "http://localhost:5173"
 ]
 app.add_middleware(
     CORSMiddleware,
@@ -84,6 +85,35 @@ async def get_app_info(request: Request):
     }
 
 
+class SyncedFoldersResponse(BaseModel):
+    folder_path: str
+    last_synced_at: datetime | None
+    total_files: int
+    processed_files: int
+    status: str
+
+
+@app.get("/synced_folders", response_model=list[SyncedFoldersResponse])
+async def get_synced_folders(request: Request):
+    """
+    Return folder syncing history
+    """
+    # get latest sync records for unique folder_path
+    pipeline = [
+        {"$match": {"status": "COMPLETE"}},
+        {"$sort": {"last_synced_at": -1}},  # sort newest first
+        {"$group": {
+            "_id": "$folder_path",
+            "latest_sync": {"$first": "$$ROOT"}
+        }},
+        {"$replaceRoot": {"newRoot": "$latest_sync"}}
+    ]
+    results = await SyncStatusBeanie.aggregate(pipeline).to_list()
+    # Convert raw aggregation docs to Beanie documents
+    results = [SyncStatusBeanie.model_validate(doc) for doc in results]
+    return results
+
+
 class InsertDocumentsRequest(BaseModel):
     directory: str  # example: "~/Desktop"
 
@@ -111,7 +141,7 @@ async def insert_documents_into_store(request: InsertDocumentsRequest):
 
 class SearchRequest(BaseModel):
     question: str
-    user_id: str
+    user_id: str | None = "67e83a39a5c04b8d46acd180"
     conversation_id: str | None = None
 
 
@@ -145,12 +175,12 @@ async def search_documents(request: SearchRequest):
     except Exception as e:
         logger.exception(e)
         return {
-            "user_id": str(user.id),
+            "user_id": str(user.id) if user else None,
             "conversation_id": str(conversation.id),
             "answer": str(e)}
 
     answer_utcnow = datetime.now(tz=UTC)
-    logger.debug(f"user_id={str(user.id)}, conversation_id={str(conversation.id)}, {answer_raw=}")
+    # logger.debug(f"user_id={str(user.id)}, conversation_id={str(conversation.id)}, {answer_raw=}")
 
     top_answer = answer_raw["answer_builder"]["answers"][0]
     # extract relevant documents
@@ -171,6 +201,6 @@ async def search_documents(request: SearchRequest):
     await new_message.insert()
 
     return {
-        "user_id": str(user.id),
+        "user_id": str(user.id) if user else None,
         "conversation_id": str(conversation.id),
         "answer": top_answer.data}
