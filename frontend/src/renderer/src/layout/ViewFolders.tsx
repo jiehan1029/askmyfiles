@@ -31,8 +31,7 @@ export function FoldersView() {
     useEffect(() => {
         let socket: WebSocket | null | undefined
         if(syncTaskId){
-            // todo jie use env var
-            socket = new WebSocket(`ws://localhost:8000/ws/sync_status/${syncTaskId}`);
+            socket = new WebSocket(`${import.meta.env.VITE_APP_WS_BASE_URL}/ws/sync_status/${syncTaskId}`);
 
             socket.onmessage = (event) => {
                 const data = JSON.parse(event.data);
@@ -136,9 +135,9 @@ export function FoldersView() {
                 </>
             )}
             {
-                !foldersStore.syncHistoryInflight && foldersStore.syncHistory.map((doc)=>{
+                !foldersStore.syncHistoryInflight && foldersStore.syncHistory.map((doc, idx)=>{
                     return (
-                    <div className="border-slate-200 border-solid border-2 rounded-lg p-2 my-4 w-[calc(100%-32px)]" style={{ marginTop: '12px'}}>
+                    <div key={idx} className="border-slate-200 border-solid border-2 rounded-lg p-2 my-4 w-[calc(100%-32px)]" style={{ marginTop: '12px'}}>
                         <div className="flex flex-row items-center justify-start"><Folder /><span className="pl-2 text-md">{doc.folder_path}</span></div>
                         <div className="text-sm">Last Synced: {new Date(Date.parse(doc.last_synced_at)).toLocaleString("en-US", {timeZone: "America/Los_Angeles"})} | {doc.processed_files} files</div>
                     </div>)

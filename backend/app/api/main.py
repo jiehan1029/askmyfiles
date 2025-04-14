@@ -232,3 +232,82 @@ async def search_documents(request: SearchRequest):
         # "user_id": str(user.id) if user else None,
         "conversation_id": str(conversation.id),
         "answer": top_answer.data}
+
+
+@app.websocket("/ws/chat")
+async def websocket_chat(websocket: WebSocket):
+    """
+    Generate answers and save chat conversatios; use websocket.
+    """
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_json()
+            question = data["question"]
+            conversation_id = data.get("conversation_id")
+            history_limit = data.get("history_limit", 10)  # default to 10 turns
+
+            # Send "thinking" status immediately
+            await websocket.send_json({
+                "status": "thinking",
+                "question": question
+            })
+
+            utcnow = datetime.now(tz=UTC)
+            conversation = None
+            prev_messages = []
+
+            if conversation_id:
+                conversation = await Conversation.get(conversation_id)
+                prev_messages = await Message.find(
+                    Message.conversation.id == PydanticObjectId(conversation.id)).sort("-query_created_at").limit(history_limit * 2).to_list()
+            else:
+                conversation = Conversation(created_at=utcnow)
+                await conversation.insert()
+
+            memories = format_chat_history(prev_messages)
+
+            try:
+                answer_raw = DEFAULT_RAG_PIPELINE.run(
+                    data={
+                        "text_embedder": {"text": question},
+                        "prompt_builder": {"query": question, "memories": memories},
+                        "answer_builder": {"query": question}
+                    })
+            except Exception as e:
+                await websocket.send_json({
+                    "status": "error",
+                    "conversation_id": str(conversation.id),
+                    "error": str(e)
+                })
+                continue
+
+            top_answer = answer_raw["answer_builder"]["answers"][0]
+            documents = [(lambda d: {
+                "id": d.id,
+                "score": d.score,
+                "file_path": d.meta["file_path"],
+                "source_id": d.meta["source_id"]
+            })(d) for d in top_answer.documents]
+
+            new_message = Message(
+                conversation=conversation,
+                query=question,
+                query_created_at=utcnow,
+                response=top_answer.data,
+                model=top_answer.meta.get("model"),
+                finish_reason=top_answer.meta.get("finish_reason"),
+                documents=documents,
+                response_created_at=datetime.now(tz=UTC)
+            )
+            await new_message.insert()
+
+            await websocket.send_json({
+                "status": "complete",
+                "conversation_id": str(conversation.id),
+                "answer": top_answer.data,
+                "documents": documents
+            })
+
+    except WebSocketDisconnect:
+        logger.info("Client disconnected from /ws/chat")

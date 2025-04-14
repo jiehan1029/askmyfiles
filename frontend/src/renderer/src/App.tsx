@@ -11,9 +11,16 @@ import {
 import { Button } from '@renderer/shared/components/ui/button'
 import { SquarePen } from 'lucide-react'
 import { Separator } from "@renderer/shared/components/ui/separator"
+import useChatStore from './store/chatStore'
 
 
 function App(): JSX.Element {
+  const chatStore = useChatStore()
+
+  const onClickNewChat = ()=>{
+    chatStore.startNewConversation()
+  }
+
   return (
     <>
       <AppHeader/>
@@ -24,7 +31,7 @@ function App(): JSX.Element {
           <TooltipProvider>
             <Tooltip>
                 <TooltipTrigger>
-                    <Button variant="outline" size="icon"><SquarePen /></Button>
+                    <Button variant="outline" size="icon" onClick={onClickNewChat}><SquarePen /></Button>
                 </TooltipTrigger>
                 <TooltipContent side="right"><p>New Chat</p></TooltipContent>
             </Tooltip>

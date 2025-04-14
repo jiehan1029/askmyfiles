@@ -1,9 +1,6 @@
 import { create } from 'zustand'
 import axios from 'axios'
 
-// todo jie: env var
-const API_BASE_URL = "http://localhost:8000"
-
 
 type SyncStatus = {
     folder_path: string
@@ -36,7 +33,7 @@ export const useFoldersStore = create<FoldersStore>()((set) => ({
 
     fetchSyncHistory: () => {
         set({syncHistoryInflight: true})
-        return axios.get(`${API_BASE_URL}/synced_folders`)
+        return axios.get(`${import.meta.env.VITE_APP_API_BASE_URL}/synced_folders`)
             .then(response => {
                 console.log(response)
                 set({
@@ -48,7 +45,7 @@ export const useFoldersStore = create<FoldersStore>()((set) => ({
     },
 
     syncFolders: (folderPath: string) => {
-        return axios.post(`${API_BASE_URL}/insert_documents`, {
+        return axios.post(`${import.meta.env.VITE_APP_API_BASE_URL}/insert_documents`, {
                 directory: folderPath
             })
             .then(response => {
