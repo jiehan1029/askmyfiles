@@ -29,7 +29,7 @@ interface FoldersStore {
     syncFolders: (folderPath: string)=> Promise<SyncProgress>
 }
 
-export const useFoldersStore = create<FoldersStore>()((set, get) => ({
+export const useFoldersStore = create<FoldersStore>()((set) => ({
     syncHistory: [],
     syncHistoryInflight: false,
     syncHistoryLoaded: false,

@@ -93,6 +93,9 @@ class CreateUserRequest(BaseModel):
 
 @app.post("/users")
 async def create_user(request: CreateUserRequest):
+    """
+    todo: pause: not supporting multi user atm
+    """
     found_user = await User.find({"username": request.username}).first_or_none()
     if found_user:
         raise HTTPException(status_code=400, detail={"error": "Username already exists."})
@@ -166,7 +169,7 @@ async def insert_documents_into_store(request: InsertDocumentsRequest):
 
 class SearchRequest(BaseModel):
     question: str
-    user_id: str | None = "67e83a39a5c04b8d46acd180"
+    # user_id: str | None = "67e83a39a5c04b8d46acd180"
     conversation_id: str | None = None
 
 
@@ -176,7 +179,7 @@ async def search_documents(request: SearchRequest):
     """
     Generate answers and save chat conversatios.
     """
-    user = await User.get(request.user_id)
+    # user = await User.get(request.user_id)
     conversation = None
     prev_messages = []
     utcnow = datetime.now(tz=UTC)
@@ -184,7 +187,7 @@ async def search_documents(request: SearchRequest):
         conversation = await Conversation.get(request.conversation_id)
         prev_messages = await Message.find(Message.conversation.id == PydanticObjectId(conversation.id)).to_list()
     else:
-        conversation = Conversation(user=user, created_at=utcnow)
+        conversation = Conversation(created_at=utcnow)
         await conversation.insert()
 
     memories = format_chat_history(prev_messages)
@@ -200,7 +203,7 @@ async def search_documents(request: SearchRequest):
     except Exception as e:
         logger.exception(e)
         return {
-            "user_id": str(user.id) if user else None,
+            # "user_id": str(user.id) if user else None,
             "conversation_id": str(conversation.id),
             "answer": str(e)}
 
@@ -214,7 +217,7 @@ async def search_documents(request: SearchRequest):
                              "file_path": d.meta["file_path"],
                              "source_id": d.meta["source_id"]})(d) for d in top_answer.documents]
     new_message = Message(conversation=conversation,
-                          user=user,
+                          #   user=user,
                           query=question,
                           query_created_at=utcnow,
                           response=top_answer.data,
@@ -226,6 +229,6 @@ async def search_documents(request: SearchRequest):
     await new_message.insert()
 
     return {
-        "user_id": str(user.id) if user else None,
+        # "user_id": str(user.id) if user else None,
         "conversation_id": str(conversation.id),
         "answer": top_answer.data}

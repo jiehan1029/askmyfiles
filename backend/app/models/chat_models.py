@@ -7,6 +7,9 @@ from typing import Optional
 
 
 class User(Document):
+    """
+    todo: pause: not supporting multi user now
+    """
     username: str
     timezone: str = "US/Pacific"
     created_at: datetime = datetime.now(tz=UTC)
@@ -19,7 +22,7 @@ class User(Document):
 
 
 class Conversation(Document):
-    user: Link[User]
+    user: Optional[Link[User]] | None = None
     created_at: datetime = datetime.now(tz=UTC)
 
     class Settings:
@@ -34,7 +37,7 @@ class Message(Document):
     Save user query and bot response in the same document to avoid duplicated storage of queries.
     """
     conversation: Link[Conversation]
-    user: Link[User]
+    user: Optional[Link[User]] | None = None
     query: str | None = None   # user's question
     response: str | None = None  # bot's response
     model: Optional[str] = None  # the model used for response generation
