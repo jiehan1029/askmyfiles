@@ -6,49 +6,18 @@ import { CornerDownLeft } from 'lucide-react';
 import RobotLogo from '@renderer/assets/logo.png'
 import FacePic from '@renderer/assets/face_2.png'
 import useChatStore from '@renderer/store/chatStore'
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 
 
 export function AppChatView() {
     const chatStore = useChatStore()
-    const [wsConnected, setWsConnected] = useState<boolean>(false)
-    const [wsError, setWsError] = useState<boolean>(false)
+    const { socketIsConnected, socketError, messageInflight } = chatStore
     const [message, setMessage] = useState<string>("")
-    const [answerInflight, setAnswerInflight] = useState<boolean>(false)
-    
-    const socket = useRef<WebSocket | null>(null);
 
     useEffect(() => {
-        socket.current = new WebSocket(`${import.meta.env.VITE_APP_WS_BASE_URL}/ws/chat`)
-        socket.current.onopen = () => {
-            console.log(" WebSocket connection opened");
-            setWsConnected(true)
-        }
-        socket.current.onmessage = (event) => {
-            const data = JSON.parse(event.data)
-            console.log("Chat answer:", data)
-            if(data.status === "complete"){
-                setAnswerInflight(false)
-                chatStore.addMessageToList(data.answer, "AI")
-            }else if(data.status === "error"){
-                setAnswerInflight(false)
-                chatStore.addMessageToList(data.error, "AI")
-            }
-        }
-        socket.current.onclose = (event) => {
-            console.log("WebSocket connection closed:", event.code, event.reason)
-            setWsConnected(false)
-        }
-    
-        socket.current.onerror = (error) => {
-            console.error("WebSocket error:", error)
-            setWsError(true)
-            setWsConnected(false)
-        }
-        
-        return () => socket.current?.close();
+        chatStore.connectSocket()
+        return () => chatStore.disconnectSocket()
     }, [])
-
 
     const onChangeInput = (e) => {
         setMessage(e.target.value)
@@ -58,21 +27,12 @@ export function AppChatView() {
         e.preventDefault(); // prevent page reload
         setMessage("")
         if(message){
-            setAnswerInflight(true)
-            chatStore.addMessageToList(message, "US")
-            const payload = {
-                question: message,
-                history_limit: 10 // only include last 10 turns (Q+A pairs)
-            }
-            if(chatStore.conversationId){
-                payload["conversation_id"] = chatStore.conversationId
-            }
-            socket.current?.send(JSON.stringify(payload))
+            chatStore.sendMessage(message)
         }
     }
 
     const onKeyDownSendMessage = (e) => {
-        if(message && wsConnected){
+        if(message && socketIsConnected){
             if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault() // prevent newline + prevent form submit
                 onClickSendMessage(e)
@@ -82,7 +42,7 @@ export function AppChatView() {
 
     return <>
         <ChatMessageList className="overflow-scroll pb-[120px]">
-            {wsConnected
+            {socketIsConnected
             ? (
                 <ChatBubble variant='received'>
                     <ChatBubbleAvatar src={RobotLogo} fallback='AI' />
@@ -90,7 +50,7 @@ export function AppChatView() {
                         Hi, what can I help you today?
                     </ChatBubbleMessage>
                 </ChatBubble>)
-            : wsError 
+            : socketError 
                 ? (
                     <ChatBubble variant='received'>
                         <ChatBubbleAvatar src={RobotLogo} fallback='AI' />
@@ -120,7 +80,7 @@ export function AppChatView() {
                     )
                 })
             }
-            { answerInflight && <ChatBubble variant='received'>
+            { messageInflight && <ChatBubble variant='received'>
                 <ChatBubbleAvatar src={RobotLogo} fallback='AI' />
                 <ChatBubbleMessage isLoading />
             </ChatBubble>}
@@ -140,7 +100,7 @@ export function AppChatView() {
             <div className="flex justify-end p-3 pt-0">
                 <Button
                     size="sm"
-                    disabled={!message || !wsConnected}
+                    disabled={!message || !socketIsConnected}
                     onClick={onClickSendMessage}
                 >
                     Send Message

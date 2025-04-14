@@ -12,12 +12,15 @@ import { Button } from '@renderer/shared/components/ui/button'
 import { SquarePen } from 'lucide-react'
 import { Separator } from "@renderer/shared/components/ui/separator"
 import useChatStore from './store/chatStore'
+import { Toaster } from '@renderer/shared/components/ui/sonner'
+import { toast } from "sonner"
 
 
 function App(): JSX.Element {
   const chatStore = useChatStore()
 
   const onClickNewChat = ()=>{
+    toast("New conversation started!")
     chatStore.startNewConversation()
   }
 
@@ -41,6 +44,7 @@ function App(): JSX.Element {
           <AppChatView />
         </section>
       </main>
+      <Toaster position="top-right"/>
       <AppFooter />
     </>
   )
