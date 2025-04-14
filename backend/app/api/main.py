@@ -144,6 +144,7 @@ async def get_synced_folders(request: Request):
 
 class InsertDocumentsRequest(BaseModel):
     directory: str  # example: "~/Desktop"
+    home_dir: str = "/Users"
 
 
 @app.post("/insert_documents")
@@ -156,7 +157,7 @@ async def insert_documents_into_store(request: InsertDocumentsRequest):
         status="PENDING",
         task_id=None,
     ).insert()
-    task = sync_folder.delay(folder_path=request.directory, sync_status_id=str(sync_status.id))
+    task = sync_folder.delay(folder_path=request.directory, actual_home_dir=request.home_dir, sync_status_id=str(sync_status.id))
     # then store the task ID back in Mongo
     await sync_status.set({"task_id": task.id, "status": "IN_PROGRESS"})
     return {

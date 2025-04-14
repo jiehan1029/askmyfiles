@@ -40,23 +40,27 @@ def init_celery(**kwargs):
 
 
 @app.task(bind=True)
-def sync_folder(self, folder_path: str, sync_status_id: str):
+def sync_folder(self, folder_path: str, actual_home_dir: str, sync_status_id: str):
     """Sync documents in the given folder"""
 
     logger.info(f"sync_folder task ID is: {self.request.id}, {sync_status_id=}")
 
     output_dir = Path(folder_path).expanduser()
-    home_dir = os.path.expanduser("~")
-    if os.name == "nt":
-        home_dir = home_dir.replace("\\", "/")
-    if os.getenv("HOST_HOME_DIR"):
-        output_dir_str = str(output_dir)
-        output_dir_str = output_dir_str.replace(home_dir, "/host/home")
-        output_dir = Path(output_dir_str)
+
+    host_home_dir = os.getenv("HOST_HOME_DIR")  # Mapped volume
+    host_home_actual = actual_home_dir
+
+    output_dir_str = str(output_dir)
+    # If the path starts with the actual host home dir, remap it to the mounted path
+    if str(output_dir_str).startswith(host_home_actual):
+        relative = output_dir.relative_to(host_home_actual)
+        output_dir = Path(host_home_dir) / relative
+
     logger.info(f"{output_dir=} for {os.name=} and {folder_path=}")
 
     results = []
     files = [f for f in output_dir.glob("**/*") if f.is_file()]
+
     file_count = len(files)
     PROGRESS_INTERVAL = 10  # store every 10%
     milestone = 0

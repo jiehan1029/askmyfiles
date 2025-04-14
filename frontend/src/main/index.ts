@@ -1,8 +1,8 @@
-import { app, shell, BrowserWindow, dialog, ipcMain } from 'electron'
+import { app, shell, BrowserWindow, dialog, ipcMain, session } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { session } from 'electron'
+import os from 'os'
 
 function createWindow(): void {
   // Create the browser window.
@@ -62,6 +62,10 @@ app.whenReady().then(() => {
 
     if (result.canceled) return null
     return result.filePaths[0]
+  })
+  // When the renderer process asks for the home directory, respond with it
+  ipcMain.handle('get-home-dir', () => {
+    return os.homedir()
   })
 
   createWindow()

@@ -3,7 +3,8 @@ import { electronAPI } from '@electron-toolkit/preload'
 
 // Custom APIs for renderer
 const api = {
-  selectFolder: (): Promise<string | null> => ipcRenderer.invoke('select-folder')
+  selectFolder: (): Promise<string | null> => ipcRenderer.invoke('select-folder'),
+  getHomeDir: (): Promise<string | null> => ipcRenderer.invoke('get-home-dir')
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

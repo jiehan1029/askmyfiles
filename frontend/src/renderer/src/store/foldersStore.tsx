@@ -44,14 +44,14 @@ export const useFoldersStore = create<FoldersStore>()((set) => ({
             })
     },
 
-    syncFolders: (folderPath: string) => {
-        return axios.post(`${import.meta.env.VITE_APP_API_BASE_URL}/insert_documents`, {
-                directory: folderPath
+    syncFolders: async (folderPath: string) => {
+        const homeDir = await window.api.getHomeDir()
+        const response = await axios.post(`${import.meta.env.VITE_APP_API_BASE_URL}/insert_documents`, {
+                directory: folderPath,
+                home_dir: homeDir
             })
-            .then(response => {
-                console.log(response)
-                return response.data
-            })
+        console.log(response)
+        return response.data
     }
 }))
 
