@@ -13,12 +13,20 @@ type SyncStatus = {
     status: string
 }
 
+type SyncProgress = {
+    task_id: string
+    directory: string
+    status: string
+    sync_status_id: string
+}
+
 interface FoldersStore {
     syncHistory: Array<SyncStatus>
     syncHistoryInflight: Boolean
     syncHistoryLoaded: Boolean
 
-    fetchSyncHistory: () => void
+    fetchSyncHistory: () => Promise<void>
+    syncFolders: (folderPath: string)=> Promise<SyncProgress>
 }
 
 export const useFoldersStore = create<FoldersStore>()((set, get) => ({
@@ -28,8 +36,7 @@ export const useFoldersStore = create<FoldersStore>()((set, get) => ({
 
     fetchSyncHistory: () => {
         set({syncHistoryInflight: true})
-        console.log('***** inside fetch,', get().syncHistoryLoaded)
-        axios.get(`${API_BASE_URL}/synced_folders`)
+        return axios.get(`${API_BASE_URL}/synced_folders`)
             .then(response => {
                 console.log(response)
                 set({
@@ -39,6 +46,16 @@ export const useFoldersStore = create<FoldersStore>()((set, get) => ({
                 })
             })
     },
+
+    syncFolders: (folderPath: string) => {
+        return axios.post(`${API_BASE_URL}/insert_documents`, {
+                directory: folderPath
+            })
+            .then(response => {
+                console.log(response)
+                return response.data
+            })
+    }
 }))
 
 export default useFoldersStore

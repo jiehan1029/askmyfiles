@@ -25,8 +25,9 @@ logging.basicConfig(
 )
 
 
-app = Celery('sync_app', broker=os.getenv("REDIS_URL"))
-app.conf.result_backend = os.getenv("REDIS_URL")
+app = Celery('sync_app',
+             broker=os.getenv("REDIS_URL"),
+             backend=os.getenv("REDIS_URL"))
 
 
 @worker_process_init.connect
@@ -75,7 +76,7 @@ def sync_folder(self, folder_path: str, sync_status_id: str):
         # save progress
         current = index+1
         percent = int((current / file_count) * 100)
-        self.update_state(state='PROGRESS', meta={'current': current, 'total': file_count, "file": str(file_path)})
+        self.update_state(state='IN_PROGRESS', meta={'current': current, 'total': file_count, "file": str(file_path)})
         # Only update DB at every 10% milestone
         if percent >= milestone + PROGRESS_INTERVAL or percent == 100:
             milestone = percent
@@ -98,7 +99,8 @@ def sync_folder(self, folder_path: str, sync_status_id: str):
             "last_synced_at": datetime.now(tz=UTC),
         }
     }).run()
+    self.update_state(state='SUCCESS', meta={'current': file_count, 'total': file_count, 'folder_path': folder_path})
 
-    summary = {"processed": file_count, "task_id": self.request.id, "status": "complete"}
+    summary = {'current': file_count, 'total': file_count, 'folder_path': folder_path, "task_id": self.request.id, "status": "complete"}
     logger.info(summary)
     return summary

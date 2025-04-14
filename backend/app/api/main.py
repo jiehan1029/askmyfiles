@@ -2,7 +2,7 @@ import os
 import logging
 from dotenv import load_dotenv
 from beanie import PydanticObjectId
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -15,6 +15,8 @@ from app.services.database import init_mongodb_beanie, init_qdrant
 from contextlib import asynccontextmanager
 from app.api.utils import format_chat_history
 from app.services.celery import sync_folder
+from celery.result import AsyncResult
+import asyncio
 
 
 if os.getenv("APP_ENV", "development").lower() == "development":
@@ -62,6 +64,28 @@ def health_check(request: Request):
     return {"health": "ok"}
 
 
+@app.websocket("/ws/sync_status/{task_id}")
+async def sync_status_ws(websocket: WebSocket, task_id: str):
+    await websocket.accept()
+    try:
+        while True:
+            result = AsyncResult(task_id)
+            if result.state == "IN_PROGRESS":
+                await websocket.send_json({
+                    "status": "in_progress",
+                    **result.info  # this includes 'current', 'total', 'file', etc.
+                })
+            elif result.state == "SUCCESS":
+                await websocket.send_json({"status": "complete", **(result.info or {})})
+                break
+            elif result.state in ("FAILURE", "REVOKED"):
+                await websocket.send_json({"status": "error", "detail": str(result.result)})
+                break
+            await asyncio.sleep(1)
+    except WebSocketDisconnect:
+        pass
+
+
 class CreateUserRequest(BaseModel):
     username: str
     timezone: Optional[str] = "US/Pacific"
@@ -106,7 +130,8 @@ async def get_synced_folders(request: Request):
             "_id": "$folder_path",
             "latest_sync": {"$first": "$$ROOT"}
         }},
-        {"$replaceRoot": {"newRoot": "$latest_sync"}}
+        {"$replaceRoot": {"newRoot": "$latest_sync"}},
+        {"$sort": {"last_synced_at": -1}}
     ]
     results = await SyncStatusBeanie.aggregate(pipeline).to_list()
     # Convert raw aggregation docs to Beanie documents

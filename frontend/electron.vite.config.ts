@@ -10,6 +10,15 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()]
   },
   renderer: {
+    server: {
+      proxy: {
+        // for calling websocket in development locally
+        '/ws': {
+          target: 'http://localhost:8000',
+          ws: true
+        }
+      }
+    },
     resolve: {
       alias: {
         '@': resolve(__dirname, 'src/renderer'),
