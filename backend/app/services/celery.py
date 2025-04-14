@@ -9,7 +9,7 @@ from pathlib import Path
 from celery import Celery
 from bunnet import PydanticObjectId
 from celery.signals import worker_process_init
-from app.services.pipelines import DEFAULT_PREPROCESSING_PIPELINE
+from app.services.pipelines import DEFAULT_PREPROCESSING_PIPELINE, DOCUMENT_STORE_NAME
 from app.models.status_models import SyncStatusBunnet
 from app.services.database import init_mongodb_bunnet, init_qdrant
 
@@ -56,11 +56,9 @@ def sync_folder(self, folder_path: str, actual_home_dir: str, sync_status_id: st
         relative = output_dir.relative_to(host_home_actual)
         output_dir = Path(host_home_dir) / relative
 
-    logger.info(f"{output_dir=} for {os.name=} and {folder_path=}")
+    logger.info(f"{output_dir=} for {os.name=} and {folder_path=}. Running preprocessing pipieline with {DOCUMENT_STORE_NAME=}")
 
-    results = []
     files = [f for f in output_dir.glob("**/*") if f.is_file()]
-
     file_count = len(files)
     PROGRESS_INTERVAL = 10  # store every 10%
     milestone = 0
@@ -71,7 +69,6 @@ def sync_folder(self, folder_path: str, actual_home_dir: str, sync_status_id: st
                     "sources": [file_path]
                 }
             })
-            results.append({"filename": file_path, "timestamp": datetime.now(tz=UTC).timestamp()})
         except Exception as e:
             logger.error(f"Error processing {file_path}: {e}")
 

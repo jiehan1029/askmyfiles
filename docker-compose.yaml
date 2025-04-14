@@ -14,7 +14,7 @@ services:
       - MONGO_DB_NAME=chat_db
       - DOCUMENT_STORE_NAME=qdrant
       - QDRANT_URI=http://host.docker.internal:6333
-      - QDRANT_DOCUMENT_STORE_STORAGE_DIR=/storage/qdrant
+      - QDRANT_DOCUMENT_STORE_STORAGE_DIR=/qdrant/storage
       - QDRANT_COLLECTION_NAME=documents
       - QDRANT_VECTOR_SIZE=384
       - LLM_PROVIDER=google
@@ -85,12 +85,13 @@ services:
       # - /c/Users/YourUsername:/host/home  # Mount the user's home directory on Windows
     environment:
       - APP_ENV=development
+      - DOCUMENT_STORE_NAME=qdrant
       - HOST_HOME_DIR=/host/home
       - REDIS_URL=redis://host.docker.internal:6379/0
       - MONGO_URI=mongodb://admin:admin123@mongodb:27017
       - MONGO_DB_NAME=chat_db
       - QDRANT_URI=http://host.docker.internal:6333
-      - QDRANT_DOCUMENT_STORE_STORAGE_DIR=/storage/qdrant
+      - QDRANT_DOCUMENT_STORE_STORAGE_DIR=/qdrant/storage
       - QDRANT_COLLECTION_NAME=documents
       - QDRANT_VECTOR_SIZE=384
     working_dir: /app
