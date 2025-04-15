@@ -100,7 +100,7 @@ def build_rag_pipeline(retriever, text_embedder):
             Note that supporting documents are not part of the conversation.
             Use conversation history only if necessary.
             If the conversation history is empty, DO NOT including them in generating the answer.
-            If question can't be answered from supporting documents, say so.
+            If question can't be answered from supporting documents, still try to answer from your knowledge but state clearly there is no supporting document.
             Do not rewrite the query.
 
             Conversation history:
@@ -160,6 +160,62 @@ def build_rag_pipeline(retriever, text_embedder):
     return basic_rag_pipeline
 
 
+def build_summary_pipeline():
+    """
+    Return a pipeline to take past conversation messages and return a summary.
+    """
+    summary_pipeline = Pipeline()
+
+    # Add components to your pipeline
+    user_message_template = [
+        ChatMessage.from_user(
+            """
+            Generate a short, clear title (3-7 words) that summarizes the main topic of this conversation.
+
+            Conversation history:
+            {% for message in memories %}
+                {{ message.text }}
+            {% endfor %}
+            """
+        )
+    ]
+    prompt_builder = ChatPromptBuilder(template=user_message_template,
+                                       variables=["memories"],
+                                       required_variables=["memories"])
+    summary_pipeline.add_component("prompt_builder", prompt_builder)
+
+    # toggle between generators
+    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "google").lower()
+    if LLM_PROVIDER == "ollama":
+        generator = OllamaChatGenerator(
+            url=os.getenv("OLLAMA_LLM_BASE_URL"),
+            model=os.getenv("OLLAMA_LLM_MODEL")
+        )
+    elif LLM_PROVIDER == "hf":
+        generator = HuggingFaceAPIChatGenerator(
+            api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,  # free version LLM
+            api_params={"model": "HuggingFaceH4/zephyr-7b-beta"},
+            token=Secret.from_env_var("HF_API_TOKEN")
+        )
+    else:
+        # https://ai.google.dev/gemini-api/docs/models
+        # https://ai.google.dev/gemini-api/docs/rate-limits
+        generator = GoogleAIGeminiChatGenerator(
+            api_key=Secret.from_env_var("GOOGLE_API_KEY"),
+            model="gemini-2.0-flash"
+        )
+    summary_pipeline.add_component("generator", generator)
+
+    answer_builder = AnswerBuilder()
+    summary_pipeline.add_component("answer_builder", answer_builder)
+
+    # Connect the components to each other
+    summary_pipeline.connect("prompt_builder.prompt", "generator.messages")
+    summary_pipeline.connect("generator.replies", "answer_builder.replies")
+
+    return summary_pipeline
+
+
 ###
 # Global pipeline instances ready to use
 ###
@@ -191,3 +247,4 @@ QDRANT_RAG_PIPELINE = build_rag_pipeline(
 ###
 DEFAULT_PREPROCESSING_PIPELINE = QDRANT_PREPROCESSING_PIPELINE if DOCUMENT_STORE_NAME == "qdrant" else IN_MEMORY_PREPROCESSING_PIPELINE
 DEFAULT_RAG_PIPELINE = QDRANT_RAG_PIPELINE if DOCUMENT_STORE_NAME == "qdrant" else IN_MEMORY_RAG_PIPELINE
+SUMMARY_PIPELINE = build_summary_pipeline()

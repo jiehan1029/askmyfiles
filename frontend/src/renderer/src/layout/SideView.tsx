@@ -19,14 +19,19 @@ import { useState } from "react"
 
 
 export function AppSideView() {
-    const [tabOnOpen, setTabOnOpen] = useState('help')
+    const [tabOnOpen, setTabOnOpen] = useState<string>('help')
+    const [sheetIsOpen, setSheetIsOpen] = useState<boolean>(false)
 
     const onClickSideIcon = (e)=>{
         setTabOnOpen(e.target.value)
     }
 
+    const closeSideView = ()=>{
+        setSheetIsOpen(false)
+    }
+
     return (
-        <Sheet>
+        <Sheet open={sheetIsOpen} onOpenChange={setSheetIsOpen}>
             <SheetTrigger className='flex flex-initial flex-col'>
                 <TooltipProvider>
                     <Tooltip>
@@ -64,7 +69,7 @@ export function AppSideView() {
                         <FoldersView />
                     </TabsContent>
                     <TabsContent value="chatHistory">
-                        <ChatHistoryView />
+                        <ChatHistoryView closeSideView={closeSideView} />
                     </TabsContent>
                     <TabsContent value="help">
                         <HelpView />

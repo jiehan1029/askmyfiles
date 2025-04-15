@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { toast } from "sonner"
+import axios from 'axios'
 
 
 type messageListType = {
@@ -18,7 +19,7 @@ interface ChatStore {
 
     addMessageToList: (message: string, from: "AI" | "US") => void
     startNewConversation: () => void
-
+    getConversationMessages: (conversationId: string | null | undefined) => Promise<void>
     connectSocket: () => void
     disconnectSocket: () => void
     sendMessage: (message: string) => void
@@ -50,6 +51,46 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
         })
     },
 
+    getConversationMessages: async (conversationId: string | null | undefined) => {
+        set({
+            messageInflight: true,
+            messageList: []
+        })
+        // todo: error handling
+        const inputConversationId = conversationId ? conversationId : get().conversationId
+        return await axios.get(`${import.meta.env.VITE_APP_API_BASE_URL}/chat_history/${inputConversationId}`)
+            .then(response=>{
+                if(response.status === 200){
+                    const convoMessageList: Array<messageListType> = []
+                    for(const msgRec of response.data.messages){
+                        if(msgRec.query){
+                            convoMessageList.push({
+                                from: "US",
+                                text: msgRec.query
+                            })
+                        }
+                        if(msgRec.response){
+                            convoMessageList.push({
+                                from: "AI",
+                                text: msgRec.response
+                            })
+                        }
+                    }
+                    set({
+                        conversationId: response.data.conversation_id,
+                        messageList: convoMessageList,
+                        messageInflight: false
+                    })                    
+                } else {
+                    set({
+                        conversationId: inputConversationId,
+                        messageList: [],
+                        messageInflight: false
+                    })
+                }
+            })
+    },
+
     connectSocket: () => {
         const wsUrl = `${import.meta.env.VITE_APP_WS_BASE_URL}/ws/chat`
         const socket = new WebSocket(wsUrl)
@@ -61,13 +102,11 @@ export const useChatStore = create<ChatStore>()((set, get) => ({
 
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data)
-            console.log("WS message:", data)
-
             if(data.status === "complete"){
-                set({messageInflight: false})
+                set({messageInflight: false, conversationId: data.conversation_id})
                 get().addMessageToList(data.answer, "AI")
             }else if(data.status === "error"){
-                set({messageInflight: false})
+                set({messageInflight: false, conversationId: data.conversation_id})
                 get().addMessageToList(data.error, "AI")
             }
             // note: UI implemented loading separately, don't need to display "thinking" from backend

@@ -6,18 +6,33 @@ import { CornerDownLeft } from 'lucide-react';
 import RobotLogo from '@renderer/assets/logo.png'
 import FacePic from '@renderer/assets/face_2.png'
 import useChatStore from '@renderer/store/chatStore'
+import useChatHistoryStore from '@renderer/store/chatHistoryStore';
 import { useState, useEffect } from "react"
 
 
 export function AppChatView() {
     const chatStore = useChatStore()
+    const chatHistoryStore = useChatHistoryStore()
     const { socketIsConnected, socketError, messageInflight } = chatStore
     const [message, setMessage] = useState<string>("")
+    const [chatHistoryUpdated, setChatHistoryUpdated] = useState<boolean>(false)
 
     useEffect(() => {
         chatStore.connectSocket()
         return () => chatStore.disconnectSocket()
     }, [])
+
+    useEffect(()=>{
+        setChatHistoryUpdated(false)
+    }, [chatStore.conversationId])
+
+    useEffect(()=>{
+        if(!chatHistoryUpdated && chatStore.messageList.length >= 2){
+            chatHistoryStore.getChatHistory().then(()=>{
+                setChatHistoryUpdated(true)
+            })
+        }
+    }, [chatStore.messageList.length])
 
     const onChangeInput = (e) => {
         setMessage(e.target.value)

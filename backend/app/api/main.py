@@ -13,7 +13,7 @@ from app.models.chat_models import User, Message, Conversation
 from app.models.status_models import SyncStatusBeanie
 from app.services.database import init_mongodb_beanie, init_qdrant
 from contextlib import asynccontextmanager
-from app.api.utils import format_chat_history
+from app.api.utils import format_chat_history, extract_conversation_summary
 from app.services.celery import sync_folder
 from celery.result import AsyncResult
 import asyncio
@@ -312,3 +312,92 @@ async def websocket_chat(websocket: WebSocket):
 
     except WebSocketDisconnect:
         logger.info("Client disconnected from /ws/chat")
+
+
+class ChatHistoryResponse(BaseModel):
+    conversation_id: str
+    summary: str | None = None
+    created_at: datetime
+
+
+@app.get("/chat_history", response_model=list[ChatHistoryResponse])
+async def get_chat_history():
+    """
+    Return all conversations stored. (won't differentiate user since atm not supporting multi user).
+    """
+    # todo: pagination
+    # currently support past 10 conversations
+    all_conversations = await Conversation.find().sort("-created_at").limit(10).to_list()
+    results = []
+    for convo in all_conversations:
+        convo_summary = ""
+        if convo.summary:
+            convo_summary = convo.summary
+        else:
+            extracted = await extract_conversation_summary(conversation_id=str(convo.id))
+            if extracted.get("error"):
+                logger.info(f'Skipping conversation ({str(convo.id)}): {extracted.get("error")}')
+            else:
+                convo_summary = extracted.get("summary", "")
+        results.append({
+            "conversation_id": str(convo.id),
+            "summary": convo_summary,
+            "created_at": convo.created_at
+        })
+    return results
+
+
+@app.delete("/chat_history/{conversation_id}", status_code=201)
+async def delete_chat_history_by_id(conversation_id: str):
+    conversation = await Conversation.get(conversation_id)
+    if not conversation:
+        return
+
+    await conversation.delete()
+    return
+
+
+class MessageRecord(BaseModel):
+    query: str
+    response: str
+
+
+class GetChatHistoryByIdResponse(BaseModel):
+    conversation_id: str
+    summary: Optional[str] = None
+    created_at: datetime
+    messages: list[MessageRecord]
+
+
+@app.get("/chat_history/{conversation_id}")
+async def get_chat_history_by_id(conversation_id: str):
+    conversation = await Conversation.get(conversation_id)
+    if not conversation:
+        raise HTTPException(status_code=400, detail={"error": "Cannot find the conversation."})
+
+    prev_messages = await Message.find(
+        Message.conversation.id == PydanticObjectId(conversation.id)).sort("query_created_at").to_list()
+    message_list = []
+    for msg in prev_messages:
+        message_list.append({
+            "query": msg.query,
+            "response": msg.response
+        })
+    return {
+        "conversation_id": conversation_id,
+        "summary": conversation.summary,
+        "created_at": conversation.created_at,
+        "messages": message_list
+    }
+
+
+@app.get("/chat_summary/{conversation_id}")
+async def summarize_conversation(conversation_id: str):
+    """
+    Given conversation id, return its summary. If not yet have one, run pipeline to generate it.
+    """
+    result = await extract_conversation_summary(conversation_id=conversation_id)
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail={"error": result.get("error")})
+
+    return result

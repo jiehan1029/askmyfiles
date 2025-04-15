@@ -24,6 +24,7 @@ class User(Document):
 class Conversation(Document):
     user: Optional[Link[User]] | None = None
     created_at: datetime = datetime.now(tz=UTC)
+    summary: Optional[str] | None = None
 
     class Settings:
         name = "conversations"

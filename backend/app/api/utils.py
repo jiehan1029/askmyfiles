@@ -1,5 +1,7 @@
 from haystack.dataclasses import ChatMessage
-from app.models.chat_models import Message
+from app.models.chat_models import Message, Conversation
+from beanie import PydanticObjectId
+from app.services.pipelines import SUMMARY_PIPELINE
 
 
 def format_chat_history(chat_history: list[Message]) -> list[ChatMessage]:
@@ -23,3 +25,33 @@ def format_chat_history(chat_history: list[Message]) -> list[ChatMessage]:
                                                })
             memories.append(bot_chat)
     return memories
+
+
+async def extract_conversation_summary(conversation_id: str) -> dict:
+    """
+    Get or create summary for the conversation, save to database if created.
+    """
+    conversation = await Conversation.get(conversation_id)
+    if not conversation:
+        return {"error": "Cannot find the conversation."}
+
+    if conversation.summary:
+        return {"summary": conversation.summary, "conversation_id": conversation_id}
+
+    prev_messages = await Message.find(
+        Message.conversation.id == PydanticObjectId(conversation.id)).sort("query_created_at").to_list()
+
+    if len(prev_messages) == 0:
+        return {"error": "No message found in conversation."}
+
+    memories = format_chat_history(prev_messages)
+    answer_raw = SUMMARY_PIPELINE.run(data={
+        "prompt_builder": {"memories": memories},
+        "answer_builder": {"query": "Summarize this conversation"}  # dummy query
+    })
+    top_answer = answer_raw["answer_builder"]["answers"][0]
+
+    # save summary to conversation
+    conversation.summary = top_answer.data
+    await conversation.save()
+    return {"summary": conversation.summary, "conversation_id": conversation_id}
