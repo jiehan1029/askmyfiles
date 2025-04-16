@@ -11,7 +11,11 @@ class User(Document):
     todo: pause: not supporting multi user now
     """
     username: str
-    timezone: str = "US/Pacific"
+    locale: str = "en-US"  # IETF BCP 47 locale tags for frontend compatibility
+    timezone: str = "America/Los_Angeles"  # BCP 47 language tags (FE compatible)
+    llm_provider: str = "gemini"  # atm support "gemini", "huggingFace" and "ollama"
+    llm_api_token: Optional[str] = None
+    llm_model: str = "gemini-2.0-flash"  # default
     created_at: datetime = datetime.now(tz=UTC)
 
     class Settings:
@@ -19,6 +23,16 @@ class User(Document):
 
     class Config:
         arbitrary_types_allowed = True  # This allows Pydantic to handle ObjectId
+
+    @classmethod
+    def map_default_model(cls, provider: str) -> str:
+        if provider == "gemini":
+            return "gemini-2.0-flash"
+        if provider == "huggingFace":
+            return "HuggingFaceH4/zephyr-7b-beta"
+        if provider == "ollama":
+            return "mistral:7b"
+        return None
 
 
 class Conversation(Document):

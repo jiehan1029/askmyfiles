@@ -34,10 +34,22 @@ export function SettingsView() {
 
     const settingsStore = useSettingsStore()
 
+    const resetSettings = ()=>{
+        setProvider(settingsStore.llmProvider)
+        setApiToken(settingsStore.llmApiToken)
+        setModel(settingsStore.llmModel)
+        setLocale(settingsStore.locale)
+        setTimezone(settingsStore.timezone)
+    }
+
     useEffect(()=>{
         if(!settingsStore.settingsLoaded){
             console.log("load settings...")
-            settingsStore.fetchSettings()
+            settingsStore.fetchSettings().then(()=>{
+                resetSettings()
+            })
+        } else {
+            resetSettings()
         }
     }, [])
 
@@ -169,7 +181,10 @@ export function SettingsView() {
                 </div>
             </section>
             <Separator style={{margin: '12px 0'}}/>
-            <Button className="float-right" disabled={settingsStore.settingsInflight} onClick={onClickSaveSettings}>Save Settings</Button>
+            <div className="flex flex-row items-center justify-end">
+                <Button variant={"secondary"} disabled={settingsStore.settingsInflight} onClick={resetSettings} style={{ marginRight: '24px'}}>Reset</Button>
+                <Button disabled={settingsStore.settingsInflight} onClick={onClickSaveSettings}>Save Settings</Button>
+            </div>
         </>)}
         </div>
     </>

@@ -17,9 +17,8 @@ interface SettingsStore {
 }
 
 // todo axio error handling
-// todo jie BE for FE
 export const useSettingsStore = create<SettingsStore>()((set, get) => ({
-    settingId: "",
+    settingId: "",  // note: settingId is in fact user id (though atm not supporting multi user)
     locale: "en-US",
     timezone: "America/Los_Angeles",
     llmProvider: "gemini",
@@ -36,7 +35,7 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => ({
                 set({
                     settingsInflight: false,
                     settingsLoaded: true,
-                    settingId: response.data.id,
+                    settingId: response.data._id,
                     locale: response.data.locale,
                     timezone: response.data.timezone,
                     llmProvider: response.data.llm_provider,
@@ -48,9 +47,19 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => ({
 
     syncSettings: async (payload: object) => {
         set({settingsInflight: true})
-        const response = await axios.patch(`${import.meta.env.VITE_APP_API_BASE_URL}/settings/${get().settingId}`, payload)
-        console.log(response)
-        return get().fetchSettings()
+        return await axios.patch(`${import.meta.env.VITE_APP_API_BASE_URL}/settings/${get().settingId}`, payload)
+            .then(response => {
+                set({
+                    settingsInflight: false,
+                    settingsLoaded: true,
+                    settingId: response.data._id,
+                    locale: response.data.locale,
+                    timezone: response.data.timezone,
+                    llmProvider: response.data.llm_provider,
+                    llmApiToken: response.data.llm_api_token,
+                    llmModel: response.data.llm_model
+                })
+            })
     }
 }))
 

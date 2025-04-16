@@ -14,7 +14,7 @@ if os.getenv("APP_ENV", "development").lower() == "development":
     load_dotenv()
 
 
-DOCUMENT_STORE_NAME = os.getenv("DOCUMENT_STORE_NAME")
+DOCUMENT_STORE_NAME = os.getenv("DOCUMENT_STORE_NAME", "qdrant")
 QDRANT_DOCUMENT_STORE_STORAGE_DIR = os.getenv("QDRANT_DOCUMENT_STORE_STORAGE_DIR")
 
 

@@ -15,7 +15,7 @@ async def init_db():
         # Check if the collection already exists and add a document if necessary
         if "users" not in db_collection_names:
             print("Collection 'users' does not exist. Initializing with some data.")
-            message = User(username="init-user", created_at=datetime.now(tz=UTC))
+            message = User(username="appuser", created_at=datetime.now(tz=UTC))
             await message.insert()
             print("First User record inserted!")
         else:

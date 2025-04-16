@@ -107,7 +107,7 @@ async def create_user(request: CreateUserRequest):
 @app.get("/info")
 async def get_app_info(request: Request):
     return {
-        "document_store": os.getenv("DOCUMENT_STORE_NAME"),
+        "document_store": os.getenv("DOCUMENT_STORE_NAME", "qdrant"),
         "num_documents": DEFAULT_DOCUMENT_STORE.count_documents()
     }
 
@@ -406,3 +406,69 @@ async def summarize_conversation(conversation_id: str):
         raise HTTPException(status_code=400, detail={"error": result.get("error")})
 
     return result
+
+
+@app.get("/settings")
+async def get_settings():
+    """
+    Settings are saved per user (though it's not supporting multi user atm).
+    Assume there is only one.
+    """
+    users = await User.find().sort("created_at").limit(10).to_list()
+    # as safeguard, only keep 1 user
+    if len(users) == 0:
+        user = await User(
+            username="appuser",
+            locale="en-US",
+            timezone="America/Los_Angeles",
+            llm_provider="gemini",
+            llm_api_token=None,
+            llm_model="gemini-2.0-flash"
+        ).insert()
+    elif len(users) > 1:
+        user = users[0]
+        user_id = user.id
+        logger.info(f"Clean up users other than {user_id=}.")
+        await User.find(User.id != user_id).delete()
+
+    curr_user = await User.find().first_or_none()
+    assert curr_user is not None, "No users left!"
+    if not curr_user.llm_provider:
+        # reset the default
+        curr_user.username = "appuser"
+        curr_user.locale = "en-US"
+        curr_user.timezone = "America/Los_Angeles"
+        curr_user.llm_provider = "gemini"
+        curr_user.llm_api_token = None
+        curr_user.llm_model = "gemini-2.0-flash"
+        await curr_user.save()
+
+    return curr_user
+
+
+class PatchSettingsPayload(BaseModel):
+    locale: Optional[str]
+    timezone: Optional[str]
+    llm_provider: Optional[str]
+    llm_api_token: Optional[str]
+    llm_model: Optional[str]
+
+
+@app.patch("/settings/{user_id}")
+async def patch_settings(user_id: str, payload: PatchSettingsPayload):
+    curr_user = await User.get(user_id)
+    assert curr_user is not None, "No users left!"
+
+    if getattr(payload, "locale", None) is not None:
+        curr_user.locale = payload.locale
+    if getattr(payload, "timezone", None) is not None:
+        curr_user.timezone = payload.timezone
+    if getattr(payload, "llm_provider", None) is not None:
+        curr_user.llm_provider = payload.llm_provider
+    if getattr(payload, "llm_api_token", None) is not None:
+        curr_user.llm_api_token = payload.llm_api_token
+    if getattr(payload, "llm_model", None) is not None:
+        curr_user.llm_model = payload.llm_model
+    await curr_user.save()
+
+    return curr_user

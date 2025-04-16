@@ -17,7 +17,7 @@ services:
       - QDRANT_DOCUMENT_STORE_STORAGE_DIR=/qdrant/storage
       - QDRANT_COLLECTION_NAME=documents
       - QDRANT_VECTOR_SIZE=384
-      - LLM_PROVIDER=google
+      - LLM_PROVIDER=gemini
       # - OLLAMA_LLM_MODEL=mistral:7b    
       # - OLLAMA_LLM_BASE_URL=http://host.docker.internal:7869
       # - GOOGLE_API_KEY=

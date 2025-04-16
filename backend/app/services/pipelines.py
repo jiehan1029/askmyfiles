@@ -31,7 +31,7 @@ from haystack_integrations.components.generators.google_ai import GoogleAIGemini
 from haystack_integrations.components.generators.ollama import OllamaChatGenerator
 
 
-DOCUMENT_STORE_NAME = os.getenv("DOCUMENT_STORE_NAME")
+DOCUMENT_STORE_NAME = os.getenv("DOCUMENT_STORE_NAME", "qdrant")
 
 
 def build_preprocessing_pipeline(
@@ -100,7 +100,7 @@ def build_rag_pipeline(retriever, text_embedder):
             Note that supporting documents are not part of the conversation.
             Use conversation history only if necessary.
             If the conversation history is empty, DO NOT including them in generating the answer.
-            If question can't be answered from supporting documents, still try to answer from your knowledge but state clearly there is no supporting document.
+            If question can't be answered from supporting documents, try to answer from your knowledge but state clearly no supporting document found.
             Do not rewrite the query.
 
             Conversation history:
@@ -124,13 +124,13 @@ def build_rag_pipeline(retriever, text_embedder):
     basic_rag_pipeline.add_component("prompt_builder", prompt_builder)
 
     # toggle between generators
-    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "google").lower()
+    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini").lower()
     if LLM_PROVIDER == "ollama":
         generator = OllamaChatGenerator(
             url=os.getenv("OLLAMA_LLM_BASE_URL"),
             model=os.getenv("OLLAMA_LLM_MODEL")
         )
-    elif LLM_PROVIDER == "hf":
+    elif LLM_PROVIDER == "huggingFace":
         generator = HuggingFaceAPIChatGenerator(
             api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,  # free version LLM
             api_params={"model": "HuggingFaceH4/zephyr-7b-beta"},
@@ -185,13 +185,13 @@ def build_summary_pipeline():
     summary_pipeline.add_component("prompt_builder", prompt_builder)
 
     # toggle between generators
-    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "google").lower()
+    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini").lower()
     if LLM_PROVIDER == "ollama":
         generator = OllamaChatGenerator(
             url=os.getenv("OLLAMA_LLM_BASE_URL"),
             model=os.getenv("OLLAMA_LLM_MODEL")
         )
-    elif LLM_PROVIDER == "hf":
+    elif LLM_PROVIDER == "huggingFace":
         generator = HuggingFaceAPIChatGenerator(
             api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,  # free version LLM
             api_params={"model": "HuggingFaceH4/zephyr-7b-beta"},
