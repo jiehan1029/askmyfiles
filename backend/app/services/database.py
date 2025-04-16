@@ -17,7 +17,6 @@ MONGO_URI = os.getenv("MONGO_URI")
 DB_NAME = os.getenv("MONGO_DB_NAME", "chat_db")
 QDRANT_URI = os.getenv("QDRANT_URI")
 QDRANT_COLLECTION_NAME = os.getenv("QDRANT_COLLECTION_NAME", "documents")
-QDRANT_VECTOR_SIZE = os.getenv("QDRANT_VECTOR_SIZE", 384)
 
 
 async def init_mongodb_beanie():
@@ -44,7 +43,8 @@ def init_qdrant():
     else:
         client.create_collection(
             collection_name=QDRANT_COLLECTION_NAME,
-            vectors_config=VectorParams(size=int(QDRANT_VECTOR_SIZE), distance=Distance.COSINE),
+            # NOTE: vector size 385 to match the embedding model "sentence-transformers/all-MiniLM-L6-v2"
+            vectors_config=VectorParams(size=384, distance=Distance.COSINE),
         )
         print(f"Registered new Qdrant collection {QDRANT_COLLECTION_NAME}.")
     return

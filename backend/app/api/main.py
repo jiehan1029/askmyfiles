@@ -6,14 +6,14 @@ from fastapi import FastAPI, Request, HTTPException, WebSocket, WebSocketDisconn
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
-from app.services.document_stores import DEFAULT_DOCUMENT_STORE
-from app.services.pipelines import DEFAULT_RAG_PIPELINE
+from app.services.document_stores import QDRANT_DOCUMENT_STORE
+from app.services.pipelines import build_rag_pipeline_in_qdrant
 from datetime import UTC, datetime
 from app.models.chat_models import User, Message, Conversation
 from app.models.status_models import SyncStatusBeanie
 from app.services.database import init_mongodb_beanie, init_qdrant
 from contextlib import asynccontextmanager
-from app.api.utils import format_chat_history, extract_conversation_summary
+from app.api.utils import format_chat_history, extract_conversation_summary, get_user_settings
 from app.services.celery import sync_folder
 from celery.result import AsyncResult
 import asyncio
@@ -107,8 +107,8 @@ async def create_user(request: CreateUserRequest):
 @app.get("/info")
 async def get_app_info(request: Request):
     return {
-        "document_store": os.getenv("DOCUMENT_STORE_NAME", "qdrant"),
-        "num_documents": DEFAULT_DOCUMENT_STORE.count_documents()
+        "document_store": "qdrant",
+        "num_documents": QDRANT_DOCUMENT_STORE.count_documents()
     }
 
 
@@ -197,10 +197,16 @@ async def search_documents(request: SearchRequest):
         await conversation.insert()
 
     memories = format_chat_history(prev_messages)
-
     question = request.question
+
+    user_setting = await get_user_settings()
+    RAG_PIPELINE = build_rag_pipeline_in_qdrant(
+        llm_provider=user_setting.llm_provider,
+        llm_model=user_setting.llm_model,
+        llm_api_token=user_setting.llm_api_token
+    )
     try:
-        answer_raw = DEFAULT_RAG_PIPELINE.run(
+        answer_raw = RAG_PIPELINE.run(
             data={
                 "text_embedder": {"text": question},
                 "prompt_builder": {"query": question, "memories": memories},
@@ -272,9 +278,14 @@ async def websocket_chat(websocket: WebSocket):
                 await conversation.insert()
 
             memories = format_chat_history(prev_messages)
-
+            user_setting = await get_user_settings()
+            RAG_PIPELINE = build_rag_pipeline_in_qdrant(
+                llm_provider=user_setting.llm_provider,
+                llm_model=user_setting.llm_model,
+                llm_api_token=user_setting.llm_api_token
+            )
             try:
-                answer_raw = DEFAULT_RAG_PIPELINE.run(
+                answer_raw = RAG_PIPELINE.run(
                     data={
                         "text_embedder": {"text": question},
                         "prompt_builder": {"query": question, "memories": memories},
@@ -414,36 +425,7 @@ async def get_settings():
     Settings are saved per user (though it's not supporting multi user atm).
     Assume there is only one.
     """
-    users = await User.find().sort("created_at").limit(10).to_list()
-    # as safeguard, only keep 1 user
-    if len(users) == 0:
-        user = await User(
-            username="appuser",
-            locale="en-US",
-            timezone="America/Los_Angeles",
-            llm_provider="gemini",
-            llm_api_token=None,
-            llm_model="gemini-2.0-flash"
-        ).insert()
-    elif len(users) > 1:
-        user = users[0]
-        user_id = user.id
-        logger.info(f"Clean up users other than {user_id=}.")
-        await User.find(User.id != user_id).delete()
-
-    curr_user = await User.find().first_or_none()
-    assert curr_user is not None, "No users left!"
-    if not curr_user.llm_provider:
-        # reset the default
-        curr_user.username = "appuser"
-        curr_user.locale = "en-US"
-        curr_user.timezone = "America/Los_Angeles"
-        curr_user.llm_provider = "gemini"
-        curr_user.llm_api_token = None
-        curr_user.llm_model = "gemini-2.0-flash"
-        await curr_user.save()
-
-    return curr_user
+    return await get_user_settings()
 
 
 class PatchSettingsPayload(BaseModel):

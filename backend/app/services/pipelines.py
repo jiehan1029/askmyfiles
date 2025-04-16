@@ -33,6 +33,13 @@ from haystack_integrations.components.generators.ollama import OllamaChatGenerat
 
 DOCUMENT_STORE_NAME = os.getenv("DOCUMENT_STORE_NAME", "qdrant")
 
+# matching document & text embedders must use the same model
+embedder_model = "sentence-transformers/all-MiniLM-L6-v2"
+
+# retrievers
+in_memory_retriever = InMemoryEmbeddingRetriever(IN_MEMORY_DOCUMENT_STORE)
+qdrant_retriever = QdrantEmbeddingRetriever(document_store=QDRANT_DOCUMENT_STORE)
+
 
 def build_preprocessing_pipeline(
         document_store: DocumentStore,
@@ -83,7 +90,12 @@ def build_preprocessing_pipeline(
     return preprocessing_pipeline
 
 
-def build_rag_pipeline(retriever, text_embedder):
+def _build_rag_pipeline(
+        retriever,
+        text_embedder,
+        llm_provider: str,
+        llm_model: str,
+        llm_api_token: str | None = None):
     """
     Return a RAG pipeline.
     """
@@ -124,24 +136,26 @@ def build_rag_pipeline(retriever, text_embedder):
     basic_rag_pipeline.add_component("prompt_builder", prompt_builder)
 
     # toggle between generators
-    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini").lower()
-    if LLM_PROVIDER == "ollama":
+    if llm_provider == "ollama":
         generator = OllamaChatGenerator(
             url=os.getenv("OLLAMA_LLM_BASE_URL"),
-            model=os.getenv("OLLAMA_LLM_MODEL")
+            # model=os.getenv("OLLAMA_LLM_MODEL")
+            model=llm_model
         )
-    elif LLM_PROVIDER == "huggingFace":
+    elif llm_provider == "huggingFace":
         generator = HuggingFaceAPIChatGenerator(
             api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,  # free version LLM
-            api_params={"model": "HuggingFaceH4/zephyr-7b-beta"},
-            token=Secret.from_env_var("HF_API_TOKEN")
+            api_params={"model": llm_model},
+            # token=Secret.from_env_var("HF_API_TOKEN"),
+            token=Secret.from_token(llm_api_token),
         )
     else:
         # https://ai.google.dev/gemini-api/docs/models
         # https://ai.google.dev/gemini-api/docs/rate-limits
         generator = GoogleAIGeminiChatGenerator(
-            api_key=Secret.from_env_var("GOOGLE_API_KEY"),
-            model="gemini-2.0-flash"
+            # api_key=Secret.from_env_var("GOOGLE_API_KEY"),
+            api_key=Secret.from_token(llm_api_token),
+            model=llm_model
         )
     basic_rag_pipeline.add_component("generator", generator)
 
@@ -160,7 +174,36 @@ def build_rag_pipeline(retriever, text_embedder):
     return basic_rag_pipeline
 
 
-def build_summary_pipeline():
+def build_rag_pipeline_in_memory(
+        llm_provider: str,
+        llm_model: str,
+        llm_api_token: str | None = None):
+    return _build_rag_pipeline(
+        retriever=InMemoryEmbeddingRetriever(IN_MEMORY_DOCUMENT_STORE),
+        text_embedder=SentenceTransformersTextEmbedder(model=embedder_model),
+        llm_provider=llm_provider,
+        llm_model=llm_model,
+        llm_api_token=llm_api_token
+    )
+
+
+def build_rag_pipeline_in_qdrant(
+        llm_provider: str,
+        llm_model: str,
+        llm_api_token: str | None = None):
+    return _build_rag_pipeline(
+        retriever=QdrantEmbeddingRetriever(document_store=QDRANT_DOCUMENT_STORE),
+        text_embedder=SentenceTransformersTextEmbedder(model=embedder_model),
+        llm_provider=llm_provider,
+        llm_model=llm_model,
+        llm_api_token=llm_api_token
+    )
+
+
+def build_summary_pipeline(
+        llm_provider: str,
+        llm_model: str,
+        llm_api_token: str | None = None):
     """
     Return a pipeline to take past conversation messages and return a summary.
     """
@@ -185,24 +228,23 @@ def build_summary_pipeline():
     summary_pipeline.add_component("prompt_builder", prompt_builder)
 
     # toggle between generators
-    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini").lower()
-    if LLM_PROVIDER == "ollama":
+    if llm_provider == "ollama":
         generator = OllamaChatGenerator(
             url=os.getenv("OLLAMA_LLM_BASE_URL"),
-            model=os.getenv("OLLAMA_LLM_MODEL")
+            model=llm_model
         )
-    elif LLM_PROVIDER == "huggingFace":
+    elif llm_provider == "huggingFace":
         generator = HuggingFaceAPIChatGenerator(
             api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,  # free version LLM
-            api_params={"model": "HuggingFaceH4/zephyr-7b-beta"},
-            token=Secret.from_env_var("HF_API_TOKEN")
+            api_params={"model": llm_model},
+            token=Secret.from_token(llm_api_token)
         )
     else:
         # https://ai.google.dev/gemini-api/docs/models
         # https://ai.google.dev/gemini-api/docs/rate-limits
         generator = GoogleAIGeminiChatGenerator(
-            api_key=Secret.from_env_var("GOOGLE_API_KEY"),
-            model="gemini-2.0-flash"
+            api_key=Secret.from_token(llm_api_token),
+            model=llm_model
         )
     summary_pipeline.add_component("generator", generator)
 
@@ -216,35 +258,16 @@ def build_summary_pipeline():
     return summary_pipeline
 
 
-###
-# Global pipeline instances ready to use
-###
 # matching document & text embedders must use the same model
-in_memory_retriever = InMemoryEmbeddingRetriever(IN_MEMORY_DOCUMENT_STORE)
+embedder_model = "sentence-transformers/all-MiniLM-L6-v2"
+
+# preprocessing
 IN_MEMORY_PREPROCESSING_PIPELINE = build_preprocessing_pipeline(
     document_store=IN_MEMORY_DOCUMENT_STORE,
-    document_embedder=SentenceTransformersDocumentEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
+    document_embedder=SentenceTransformersDocumentEmbedder(model=embedder_model)
 )
-IN_MEMORY_RAG_PIPELINE = build_rag_pipeline(
-    retriever=in_memory_retriever,
-    text_embedder=SentenceTransformersTextEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
-)
-
-
-qdrant_retriever = QdrantEmbeddingRetriever(document_store=QDRANT_DOCUMENT_STORE)
 QDRANT_PREPROCESSING_PIPELINE = build_preprocessing_pipeline(
     document_store=QDRANT_DOCUMENT_STORE,
-    document_embedder=SentenceTransformersDocumentEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
-)
-QDRANT_RAG_PIPELINE = build_rag_pipeline(
-    retriever=qdrant_retriever,
-    text_embedder=SentenceTransformersTextEmbedder(model="sentence-transformers/all-MiniLM-L6-v2")
+    document_embedder=SentenceTransformersDocumentEmbedder(model=embedder_model)
 )
 
-
-###
-# Default selection based on config
-###
-DEFAULT_PREPROCESSING_PIPELINE = QDRANT_PREPROCESSING_PIPELINE if DOCUMENT_STORE_NAME == "qdrant" else IN_MEMORY_PREPROCESSING_PIPELINE
-DEFAULT_RAG_PIPELINE = QDRANT_RAG_PIPELINE if DOCUMENT_STORE_NAME == "qdrant" else IN_MEMORY_RAG_PIPELINE
-SUMMARY_PIPELINE = build_summary_pipeline()

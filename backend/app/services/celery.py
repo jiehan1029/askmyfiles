@@ -9,7 +9,7 @@ from pathlib import Path
 from celery import Celery
 from bunnet import PydanticObjectId
 from celery.signals import worker_process_init
-from app.services.pipelines import DEFAULT_PREPROCESSING_PIPELINE, DOCUMENT_STORE_NAME
+from app.services.pipelines import QDRANT_PREPROCESSING_PIPELINE
 from app.models.status_models import SyncStatusBunnet
 from app.services.database import init_mongodb_bunnet, init_qdrant
 
@@ -56,7 +56,7 @@ def sync_folder(self, folder_path: str, actual_home_dir: str, sync_status_id: st
         relative = output_dir.relative_to(host_home_actual)
         output_dir = Path(host_home_dir) / relative
 
-    logger.info(f"{output_dir=} for {os.name=} and {folder_path=}. Running preprocessing pipieline with {DOCUMENT_STORE_NAME=}")
+    logger.info(f"{output_dir=} for {os.name=} and {folder_path=}. Running preprocessing pipieline with qdrant")
 
     files = [f for f in output_dir.glob("**/*") if f.is_file()]
     file_count = len(files)
@@ -64,7 +64,7 @@ def sync_folder(self, folder_path: str, actual_home_dir: str, sync_status_id: st
     milestone = 0
     for index, file_path in enumerate(files):
         try:
-            DEFAULT_PREPROCESSING_PIPELINE.run({
+            QDRANT_PREPROCESSING_PIPELINE.run({
                 "file_type_router": {
                     "sources": [file_path]
                 }
