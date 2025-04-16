@@ -7,8 +7,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../shared/components/u
 import FoldersView from './ViewFolders'
 import ChatHistoryView from './ViewChatHistory'
 import HelpView from "./ViewHelp"
+import SettingsView from "./ViewSettings"
 import { Button } from '../shared/components/ui/button'
-import { FolderSync, MessagesSquare, CircleHelp } from 'lucide-react'
+import { FolderSync, MessagesSquare, CircleHelp, Settings } from 'lucide-react'
 import {
     Tooltip,
     TooltipContent,
@@ -49,6 +50,13 @@ export function AppSideView() {
                     </Tooltip>
 
                     <Tooltip>
+                        <TooltipTrigger className="pb-1">
+                            <Button variant="outline" size="icon" value="settings" onClick={onClickSideIcon}><Settings /></Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="right"><p>Settings</p></TooltipContent>
+                    </Tooltip>
+
+                    <Tooltip>
                         <TooltipTrigger>
                             <Button variant="outline" size="icon" value="help" onClick={onClickSideIcon}><CircleHelp /></Button>
                         </TooltipTrigger>
@@ -63,6 +71,7 @@ export function AppSideView() {
                     <TabsList className="pl-8 pr-8 w-[calc(100%-40px)]">
                         <TabsTrigger value="folders">Folders</TabsTrigger>
                         <TabsTrigger value="chatHistory">Chat History</TabsTrigger>
+                        <TabsTrigger value="settings">Settings</TabsTrigger>
                         <TabsTrigger value="help">Help</TabsTrigger>
                     </TabsList>
                     <TabsContent value="folders">
@@ -70,6 +79,9 @@ export function AppSideView() {
                     </TabsContent>
                     <TabsContent value="chatHistory">
                         <ChatHistoryView closeSideView={closeSideView} />
+                    </TabsContent>
+                    <TabsContent value="settings">
+                        <SettingsView />
                     </TabsContent>
                     <TabsContent value="help">
                         <HelpView />

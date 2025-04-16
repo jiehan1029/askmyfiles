@@ -1,5 +1,5 @@
 import { Separator } from "@renderer/shared/components/ui/separator"
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import useChatHistoryStore from "@renderer/store/chatHistoryStore"
 import useChatStore from "@renderer/store/chatStore"
 import { Skeleton } from "@renderer/shared/components/ui/skeleton"
@@ -15,17 +15,35 @@ import {
     DropdownMenuTrigger,
 } from "@renderer/shared/components/ui/dropdown-menu"
 import { toast } from "sonner"
+import useSettingsStore from "@renderer/store/settingsStore"
 
 
 export function ChatHistoryView({ closeSideView }) {
     const chatHistoryStore = useChatHistoryStore()
     const chatStore = useChatStore()
+    const settingsStore = useSettingsStore()
+
+    const { timezone: ssTimezone, locale: ssLocale } = settingsStore
+
+    const [locale, setLocale] = useState<string>(ssLocale)
+    const [timezone, setTimezone] = useState<string>(ssTimezone)
 
     useEffect(()=>{
         if(!chatHistoryStore.chatHistoryLoaded){
             chatHistoryStore.getChatHistory()
         }
+        if(!settingsStore.settingsLoaded){
+            settingsStore.fetchSettings()
+        }
+        console.log("use locale and timezone: ", locale, timezone)
     }, [])
+
+    useEffect(()=>{
+        if(settingsStore.settingsLoaded){
+            setLocale(ssLocale)
+            setTimezone(ssTimezone)
+        }
+    }, [settingsStore.settingsLoaded])
 
     const onClickDeleteConversation = (conversationId: string)=>{
         chatHistoryStore.deleteChatHistory(conversationId)
@@ -56,7 +74,7 @@ export function ChatHistoryView({ closeSideView }) {
             {!chatHistoryStore.chatHistoryInflight && chatHistoryStore.chatHistory.map((chatRec)=>(
                 <div key={chatRec.conversation_id} className="hover:bg-slate-200 border-solid border-2 rounded-lg p-2 my-4 w-[calc(100%-32px)] flex flex-row justify-between items-start" style={{ marginTop: '12px'}}>
                     <div>
-                        <div className="text-sm italic">{new Date(Date.parse(chatRec.created_at)).toLocaleString("en-US", {timeZone: "America/Los_Angeles"})}</div>
+                        <div className="text-sm italic">{new Date(chatRec.created_at).toLocaleString(locale, {timeZone: timezone})}</div>
                         <div className="text-md h-[26px] overflow-y-hidden overflow-x-clip">{chatRec.summary}</div>
                     </div>
                     <Breadcrumb>

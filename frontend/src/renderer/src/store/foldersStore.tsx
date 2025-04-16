@@ -4,7 +4,7 @@ import axios from 'axios'
 
 type SyncStatus = {
     folder_path: string
-    last_synced_at: string
+    last_synced_at: number
     total_files: number
     processed_files: number
     status: string

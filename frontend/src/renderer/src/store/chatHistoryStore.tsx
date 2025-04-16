@@ -3,7 +3,7 @@ import axios from 'axios'
 
 type ChatRecordType = {
     summary: string | null | undefined
-    created_at: string
+    created_at: number
     conversation_id: string
 }
 

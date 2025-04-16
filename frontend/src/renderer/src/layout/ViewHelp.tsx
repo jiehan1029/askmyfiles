@@ -41,6 +41,13 @@ export function HelpView() {
                         The files of the following types could be parsed and used in generating answers: text/plain", text/html, application/pdf, text/markdown.
                     </AccordionContent>
                 </AccordionItem>
+                <AccordionItem value="item-4">
+                    <AccordionTrigger>How can I give feedback?</AccordionTrigger>
+                    <AccordionContent>
+                        You can open a GitHub issue or shoot me an email!
+                        This is just a side project I tinker with after work, so I might be a little slow to reply — but I really appreciate the feedback!
+                    </AccordionContent>
+                </AccordionItem>
             </Accordion>
         </div>
     </>

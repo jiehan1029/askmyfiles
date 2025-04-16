@@ -114,7 +114,7 @@ async def get_app_info(request: Request):
 
 class SyncedFoldersResponse(BaseModel):
     folder_path: str
-    last_synced_at: datetime | None
+    last_synced_at: int | None
     total_files: int
     processed_files: int
     status: str
@@ -136,9 +136,14 @@ async def get_synced_folders(request: Request):
         {"$replaceRoot": {"newRoot": "$latest_sync"}},
         {"$sort": {"last_synced_at": -1}}
     ]
-    results = await SyncStatusBeanie.aggregate(pipeline).to_list()
-    # Convert raw aggregation docs to Beanie documents
-    results = [SyncStatusBeanie.model_validate(doc) for doc in results]
+    raw_results = await SyncStatusBeanie.aggregate(pipeline).to_list()
+    results = []
+    for doc in raw_results:
+        model = SyncStatusBeanie.model_validate(doc)
+        model_dict = model.model_dump()  # convert to a regular dict
+        model_dict["last_synced_at"] = int(model.last_synced_at.timestamp() * 1000) if model.last_synced_at else 0
+        results.append(model_dict)
+
     return results
 
 
@@ -317,7 +322,7 @@ async def websocket_chat(websocket: WebSocket):
 class ChatHistoryResponse(BaseModel):
     conversation_id: str
     summary: str | None = None
-    created_at: datetime
+    created_at: int
 
 
 @app.get("/chat_history", response_model=list[ChatHistoryResponse])
@@ -342,7 +347,7 @@ async def get_chat_history():
         results.append({
             "conversation_id": str(convo.id),
             "summary": convo_summary,
-            "created_at": convo.created_at
+            "created_at": int(convo.created_at.timestamp()*1000)  # miliseconds, for FE
         })
     return results
 

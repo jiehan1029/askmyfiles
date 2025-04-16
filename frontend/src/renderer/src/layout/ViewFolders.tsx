@@ -5,6 +5,7 @@ import { Separator } from "@renderer/shared/components/ui/separator"
 import { Progress } from "@renderer/shared/components/ui/progress"
 import useFoldersStore from "@renderer/store/foldersStore"
 import { useEffect, useState } from "react"
+import useSettingsStore from "@renderer/store/settingsStore"
 
 
 export function FoldersView() {
@@ -13,6 +14,13 @@ export function FoldersView() {
     const [folderPath, setFolderPath] = useState<string | null>(null)
     const [folderSyncInflight, setFolderSyncInflight] = useState<boolean>(false)
     const [folderSyncComplete, setFolderSyncComplete] = useState<boolean>(false)
+
+    const settingsStore = useSettingsStore()
+    
+    const { timezone: ssTimezone, locale: ssLocale } = settingsStore
+
+    const [locale, setLocale] = useState<string>(ssLocale)
+    const [timezone, setTimezone] = useState<string>(ssTimezone)
     
     type folderSyncPogressType = {
         percent: number
@@ -26,7 +34,18 @@ export function FoldersView() {
         if(!foldersStore.syncHistoryLoaded){
             foldersStore.fetchSyncHistory()
         }
+        if(!settingsStore.settingsLoaded){
+            settingsStore.fetchSettings()
+        }
+        console.log("use locale and timezone: ", locale, timezone)
     }, [])
+
+    useEffect(()=>{
+        if(settingsStore.settingsLoaded){
+            setLocale(ssLocale)
+            setTimezone(ssTimezone)
+        }
+    }, [settingsStore.settingsLoaded])
 
     useEffect(() => {
         let socket: WebSocket | null | undefined
@@ -139,7 +158,7 @@ export function FoldersView() {
                     return (
                     <div key={idx} className="border-slate-200 border-solid border-2 rounded-lg p-2 my-4 w-[calc(100%-32px)]" style={{ marginTop: '12px'}}>
                         <div className="flex flex-row items-center justify-start"><Folder /><span className="pl-2 text-md">{doc.folder_path}</span></div>
-                        <div className="text-sm">Last Synced: {new Date(Date.parse(doc.last_synced_at)).toLocaleString("en-US", {timeZone: "America/Los_Angeles"})} | {doc.processed_files} files</div>
+                        <div className="text-sm">Last Synced: {new Date(doc.last_synced_at).toLocaleString(locale, {timeZone: timezone})} | {doc.processed_files} files</div>
                     </div>)
                 })
             }

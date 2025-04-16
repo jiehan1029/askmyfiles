@@ -9,7 +9,7 @@ import {
   TooltipTrigger,
 } from "./shared/components/ui/tooltip"
 import { Button } from '@renderer/shared/components/ui/button'
-import { SquarePen, RefreshCw, Settings } from 'lucide-react'
+import { SquarePen, RefreshCw } from 'lucide-react'
 import { Separator } from "@renderer/shared/components/ui/separator"
 import useChatStore from './store/chatStore'
 import { Toaster } from '@renderer/shared/components/ui/sonner'
@@ -27,10 +27,6 @@ function App(): JSX.Element {
   const onClickReconnectChat = ()=>{
     toast("Reconnect to chat server...")
     chatStore.connectSocket()
-  }
-
-  const onClickSettings = () => {
-    console.log('**** open settings')
   }
 
   return (
@@ -54,14 +50,6 @@ function App(): JSX.Element {
                     <Button variant="outline" size="icon" onClick={onClickReconnectChat}><RefreshCw /></Button>
                 </TooltipTrigger>
                 <TooltipContent side="right"><p>Reconnect Chat</p></TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          <TooltipProvider>
-            <Tooltip>
-                <TooltipTrigger>
-                    <Button variant="outline" size="icon" onClick={onClickSettings}><Settings /></Button>
-                </TooltipTrigger>
-                <TooltipContent side="right"><p>Settings</p></TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </section>
