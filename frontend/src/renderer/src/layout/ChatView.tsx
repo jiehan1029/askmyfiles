@@ -62,7 +62,8 @@ export function AppChatView() {
                 <ChatBubble variant='received'>
                     <ChatBubbleAvatar src={RobotLogo} fallback='AI' />
                     <ChatBubbleMessage variant='received'>
-                        Hi, what can I help you today?
+                        Hey! Ready to explore your files?
+                        Add folders from the sidebar, and I'll help you find answers in no time.
                     </ChatBubbleMessage>
                 </ChatBubble>)
             : socketError 

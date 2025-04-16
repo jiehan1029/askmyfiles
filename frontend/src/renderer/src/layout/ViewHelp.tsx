@@ -13,16 +13,32 @@ export function HelpView() {
     return <>
         <div className="p-2 pb-12 overflow-scroll">
             <div className="flex flex-row justify-start items-center">
-                <span className="text-sm">Contact Us:</span>
+                <span className="text-sm">Contact Me:</span>
                 <a href="https://github.com" target='_blank' style={{ marginRight: '20px', marginLeft: '20px'}}><img alt="Github logo" className='w-[20px]' src={GithubMark} /></a>
                 <a href="mailto:jiehan1029@gmail.com?subject=Feedback for AskMyFile" target='_blank'><Mail className="w-[20px]" /></a>
             </div>
             <Separator style={{ marginTop: '12px', marginBottom: '12px'}} />
             <Accordion type="single" collapsible className="w-full">
                 <AccordionItem value="item-1">
-                    <AccordionTrigger>Which LLM model does it support?</AccordionTrigger>
+                    <AccordionTrigger>Why use AskMyFiles?</AccordionTrigger>
                     <AccordionContent>
-                        You can run model in localhost or provide Google Analytc Studio's API token to use Gemini.
+                        Chat with your files and get instant answers. Sync folders, search with AI, and choose between cloud or fully local models. It's fast, flexible, and keeps your data private.
+                        <li>Get insights directly from your own documents</li>
+                        <li>Connect to powerful cloud models using your API key (Gemini, Hugging Face, etc.)</li>
+                        <li>Or run everything locally with your own LLM — nothing ever leaves your machine</li>
+                    </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="item-2">
+                    <AccordionTrigger>Which LLM providers does it support?</AccordionTrigger>
+                    <AccordionContent>
+                        At this moment, AskMyFiles supports Gemini, HuggingFace, and any self-hosted models that you spin up in the associated Ollama container.
+                        Open the settings tab from sidebar to configure.
+                    </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="item-3">
+                    <AccordionTrigger>What file types does it support?</AccordionTrigger>
+                    <AccordionContent>
+                        The files of the following types could be parsed and used in generating answers: text/plain", text/html, application/pdf, text/markdown.
                     </AccordionContent>
                 </AccordionItem>
             </Accordion>
