@@ -12,12 +12,15 @@ from typing import Optional
 class SyncStatusBeanie(BeanieDocument):
     """Async"""
     folder_path: str
+    home_dir: str
     total_files: int
     processed_files: int
+    skipped_files: int = 0
     progress_percent: int
     status: str  # "PENDING", "IN_PROGRESS", "COMPLETE"
     last_synced_at: Optional[datetime] = None
     task_id: Optional[str] = None
+    source_files: list[str] = []
 
     class Settings:
         name = "sync_status"
@@ -29,12 +32,15 @@ class SyncStatusBeanie(BeanieDocument):
 class SyncStatusBunnet(BunnetDocument):
     """Sync"""
     folder_path: str
+    home_dir: str
     total_files: int
     processed_files: int
+    skipped_files: int = 0
     progress_percent: int
     status: str  # "PENDING", "IN_PROGRESS", "COMPLETE"
     last_synced_at: Optional[datetime] = None
     task_id: Optional[str] = None
+    source_files: list[str] = []
 
     class Settings:
         name = "sync_status"

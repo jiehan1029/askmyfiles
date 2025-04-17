@@ -5,13 +5,13 @@ import os
 import logging
 from dotenv import load_dotenv
 from datetime import datetime, UTC
-from pathlib import Path
 from celery import Celery
 from bunnet import PydanticObjectId
 from celery.signals import worker_process_init
-from app.services.pipelines import QDRANT_PREPROCESSING_PIPELINE
+from app.services.pipelines import QDRANT_PREPROCESSING_PIPELINE_W_METADATA
 from app.models.status_models import SyncStatusBunnet
 from app.services.database import init_mongodb_bunnet, init_qdrant
+from app.api.utils import get_files_from_folder
 
 
 if os.getenv("APP_ENV", "development").lower() == "development":
@@ -45,32 +45,38 @@ def sync_folder(self, folder_path: str, actual_home_dir: str, sync_status_id: st
 
     logger.info(f"sync_folder task ID is: {self.request.id}, {sync_status_id=}")
 
-    output_dir = Path(folder_path).expanduser()
+    files = get_files_from_folder(folder_path=folder_path, actual_home_dir=actual_home_dir)
 
-    host_home_dir = os.getenv("HOST_HOME_DIR")  # Mapped volume
-    host_home_actual = actual_home_dir
-
-    output_dir_str = str(output_dir)
-    # If the path starts with the actual host home dir, remap it to the mounted path
-    if str(output_dir_str).startswith(host_home_actual):
-        relative = output_dir.relative_to(host_home_actual)
-        output_dir = Path(host_home_dir) / relative
-
-    logger.info(f"{output_dir=} for {os.name=} and {folder_path=}. Running preprocessing pipieline with qdrant")
-
-    files = [f for f in output_dir.glob("**/*") if f.is_file()]
     file_count = len(files)
+    processed_count = 0
+    skipped_count = 0
+    source_files = []
     PROGRESS_INTERVAL = 10  # store every 10%
     milestone = 0
     for index, file_path in enumerate(files):
         try:
-            QDRANT_PREPROCESSING_PIPELINE.run({
+            source_file = str(file_path.resolve())
+            output = QDRANT_PREPROCESSING_PIPELINE_W_METADATA.run({
                 "file_type_router": {
-                    "sources": [file_path]
+                    "sources": [file_path],
+                },
+                "add_source_meta": {
+                    "source_file": source_file
                 }
             })
+            # Check if any docs came out of the last component
+            # output for a processed file: {'document_writer': {'documents_written': 90}}
+            # output for a skipped file: {'file_type_router': {'unclassified': [PosixPath('/host/home/Desktop/Screenshot.png')]}}
+            last_component = "document_writer"  # or "document_embedder" if you skip writer
+            final_docs = output.get(last_component, {}).get("documents_written", [])
+            if final_docs:
+                processed_count += 1
+                source_files.append(source_file)
+            else:
+                skipped_count += 1
         except Exception as e:
             logger.error(f"Error processing {file_path}: {e}")
+            skipped_count += 1
 
         logger.info(f"Completed processsing {file_path}")
 
@@ -84,7 +90,9 @@ def sync_folder(self, folder_path: str, actual_home_dir: str, sync_status_id: st
             sync_status = SyncStatusBunnet.find_one(SyncStatusBunnet.id == PydanticObjectId(sync_status_id)).run()
             sync_status.set({
                 "total_files": file_count,
-                "processed_files": current,
+                "processed_files": processed_count,
+                "skipped_files": skipped_count,
+                "source_files": source_files,
                 "progress_percent": percent,
                 "status": "IN_PROGRESS",
                 "last_synced_at": datetime.now(tz=UTC),
@@ -94,7 +102,9 @@ def sync_folder(self, folder_path: str, actual_home_dir: str, sync_status_id: st
     SyncStatusBunnet.find_one(SyncStatusBunnet.id == PydanticObjectId(sync_status_id)).update({
         "$set": {
             "total_files": file_count,
-            "processed_files": file_count,
+            "processed_files": processed_count,
+            "skipped_files": skipped_count,
+            "source_files": source_files,
             "progress_percent": 100,
             "status": "COMPLETE",
             "last_synced_at": datetime.now(tz=UTC),

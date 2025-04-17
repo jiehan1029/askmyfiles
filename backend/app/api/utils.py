@@ -1,4 +1,6 @@
+import os
 import logging
+from pathlib import Path
 from haystack.dataclasses import ChatMessage
 from app.models.chat_models import Message, Conversation, User
 from beanie import PydanticObjectId
@@ -96,3 +98,19 @@ async def get_user_settings() -> User:
         curr_user.llm_model = "gemini-2.0-flash"
         await curr_user.save()
     return curr_user
+
+
+def get_files_from_folder(folder_path: str, actual_home_dir: str) -> list[any]:
+    output_dir = Path(folder_path).expanduser()
+
+    host_home_dir = os.getenv("HOST_HOME_DIR")  # Mapped volume
+    host_home_actual = actual_home_dir
+
+    output_dir_str = str(output_dir)
+    # If the path starts with the actual host home dir, remap it to the mounted path
+    if str(output_dir_str).startswith(host_home_actual):
+        relative = output_dir.relative_to(host_home_actual)
+        output_dir = Path(host_home_dir) / relative
+    files = [f for f in output_dir.glob("**/*") if f.is_file()]
+    logger.info(f"{output_dir=} for {os.name=} and {folder_path=}.")
+    return files

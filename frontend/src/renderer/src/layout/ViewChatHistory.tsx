@@ -35,7 +35,6 @@ export function ChatHistoryView({ closeSideView }) {
         if(!settingsStore.settingsLoaded){
             settingsStore.fetchSettings()
         }
-        console.log("use locale and timezone: ", locale, timezone)
     }, [])
 
     useEffect(()=>{

@@ -31,7 +31,6 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => ({
         set({settingsInflight: true})
         return axios.get(`${import.meta.env.VITE_APP_API_BASE_URL}/settings`)
             .then(response => {
-                console.log(response)
                 set({
                     settingsInflight: false,
                     settingsLoaded: true,

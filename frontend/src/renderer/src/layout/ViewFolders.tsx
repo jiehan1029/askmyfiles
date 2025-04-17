@@ -3,13 +3,23 @@ import { Folder, Loader } from 'lucide-react'
 import { Skeleton } from "@renderer/shared/components/ui/skeleton"
 import { Separator } from "@renderer/shared/components/ui/separator"
 import { Progress } from "@renderer/shared/components/ui/progress"
+import {
+    Breadcrumb,
+    BreadcrumbEllipsis,
+    BreadcrumbItem
+} from "@renderer/shared/components/ui/breadcrumb"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@renderer/shared/components/ui/dropdown-menu"
 import useFoldersStore from "@renderer/store/foldersStore"
 import { useEffect, useState } from "react"
 import useSettingsStore from "@renderer/store/settingsStore"
 
 
 export function FoldersView() {
-
     const foldersStore = useFoldersStore()
     const [folderPath, setFolderPath] = useState<string | null>(null)
     const [folderSyncInflight, setFolderSyncInflight] = useState<boolean>(false)
@@ -37,7 +47,6 @@ export function FoldersView() {
         if(!settingsStore.settingsLoaded){
             settingsStore.fetchSettings()
         }
-        console.log("use locale and timezone: ", locale, timezone)
     }, [])
 
     useEffect(()=>{
@@ -53,8 +62,7 @@ export function FoldersView() {
             socket = new WebSocket(`${import.meta.env.VITE_APP_WS_BASE_URL}/ws/sync_status/${syncTaskId}`);
 
             socket.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                console.log("websocket data=", data)
+                const data = JSON.parse(event.data)
                 if(data.status === "in_progress"){
                     setFolderSyncInflight(true)
                     setFolderSyncComplete(false)
@@ -111,21 +119,50 @@ export function FoldersView() {
         }
     }
 
-    const onClickSyncFolder = async () => {
+    const onClickSyncFolder = async (inputPath: string | null | undefined) => {
         setFolderSyncInflight(true)
-        console.log({folderPath})
-        if(folderPath){
-            const res = await foldersStore.syncFolders(folderPath)
+        const syncPath = inputPath ? inputPath : folderPath
+        if(syncPath){
+            const res = await foldersStore.syncFolders(syncPath)
             const { task_id } = res
             setSyncTaskId(task_id)
         }
+    }
+
+    const onClickRefresh = () => {
+        foldersStore.fetchSyncHistory()
+    }
+
+    const onClickDeleteAll = () => {
+        foldersStore.deleteFolder("all")
+    }
+
+    const onClickDeleteFolder = (folderPath: string) => {
+        foldersStore.deleteFolder(folderPath)
+    }
+
+    const onClickReSyncFolder = (fp: string) => {
+        setFolderPath(fp)
+        onClickSyncFolder(fp)
     }
 
     return <>
         <div className="p-2 pb-12 overflow-scroll">
             <p className="text-sm">Your AI assistant will answer questions based on the synced folders. <br/>Supported file types: text, html, PDF, and markdown.</p>
             <Separator style={{ marginTop: '12px', marginBottom: '12px'}} />
-            <Button disabled={folderSyncInflight} onClick={onClickPickFolder}>{folderSyncInflight && <Loader />}Add Folder</Button>
+            <div className="flex flex-row justify-between items-center">
+                <span>Total files synced: {foldersStore.numFilesSynced}</span>
+                <div>
+                    <Button disabled={folderSyncInflight} onClick={onClickPickFolder}>{folderSyncInflight && <Loader />}Add Folder</Button>
+                    <Button variant={"secondary"} disabled={folderSyncInflight} onClick={onClickRefresh} style={{ marginLeft: '24px'}}>{folderSyncInflight && <Loader />}Refresh</Button>
+                    <Button className="text-red-500" variant={"ghost"} disabled={folderSyncInflight} onClick={onClickDeleteAll} style={{ marginLeft: '24px'}}>{folderSyncInflight && <Loader />}Delete All</Button>
+                </div>
+            </div>
+            {
+                !foldersStore.syncHistoryInflight && foldersStore.syncHistory.length === 0 && (
+                    <div style={{ marginTop: '24px' }}>No folder synced.</div>
+                )
+            }
             {folderPath && (
                 <div className="border-slate-200 border-solid border-2 rounded-lg p-2 my-4 w-[calc(100%-32px)]" style={{ marginTop: '12px'}}>
                     <div className="flex flex-row items-center justify-start"><Folder /><span className="pl-2 text-md">{folderPath}</span></div>
@@ -137,7 +174,12 @@ export function FoldersView() {
                                 <div className="text-sm"><Progress value={folderSyncPogress.percent} className="w-[100%]" /></div>
                                 <div className="text-sm">Syncing: {folderSyncPogress.percent}% | {folderSyncPogress.current}/{folderSyncPogress.total} files</div>
                             </>
-                            : <div className="flex flex row items-center justify-between"><span className="text-sm">Not synced</span><Button variant="secondary" size="sm" onClick={onClickSyncFolder}>Sync Now</Button></div>
+                            : <>
+                                <div className="flex flex row items-center justify-between">
+                                    <span className="text-sm">Not synced</span>
+                                    <Button disabled={folderSyncInflight} size="sm" onClick={()=>onClickSyncFolder(folderPath)}>Sync Now</Button>
+                                </div>
+                            </>
                     }
                 </div>
             )}
@@ -157,8 +199,24 @@ export function FoldersView() {
                 !foldersStore.syncHistoryInflight && foldersStore.syncHistory.map((doc, idx)=>{
                     return (
                     <div key={idx} className="border-slate-200 border-solid border-2 rounded-lg p-2 my-4 w-[calc(100%-32px)]" style={{ marginTop: '12px'}}>
-                        <div className="flex flex-row items-center justify-start"><Folder /><span className="pl-2 text-md">{doc.folder_path}</span></div>
-                        <div className="text-sm">Last Synced: {new Date(doc.last_synced_at).toLocaleString(locale, {timeZone: timezone})} | {doc.processed_files} files</div>
+                        <div className="flex flex-row items-center justify-between">
+                            <div className="flex flex-row items-center justify-start"><Folder /><span className="pl-2 text-md">{doc.folder_path}</span></div>
+                            <Breadcrumb>
+                                <BreadcrumbItem>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger className="flex items-center gap-1">
+                                    <BreadcrumbEllipsis className="h-4 w-4 cursor-pointer" />
+                                    <span className="sr-only">Toggle menu</span>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="start">
+                                    <DropdownMenuItem onSelect={()=>onClickReSyncFolder(doc.folder_path)}>Re-Sync</DropdownMenuItem>
+                                    <DropdownMenuItem className="text-rose-500" onSelect={()=>onClickDeleteFolder(doc.folder_path)}>Delete</DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                                </BreadcrumbItem>
+                            </Breadcrumb>
+                        </div>
+                        <div className="text-sm">Last Synced: {new Date(doc.last_synced_at).toLocaleString(locale, {timeZone: timezone})} | {doc.processed_files} files processed / {doc.skipped_files} skipped</div>
                     </div>)
                 })
             }

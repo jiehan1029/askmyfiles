@@ -44,7 +44,6 @@ export function SettingsView() {
 
     useEffect(()=>{
         if(!settingsStore.settingsLoaded){
-            console.log("load settings...")
             settingsStore.fetchSettings().then(()=>{
                 resetSettings()
             })
@@ -84,7 +83,6 @@ export function SettingsView() {
     }
 
     const onClickSaveSettings = () => {
-        console.log("save settings....")
         settingsStore.syncSettings({
             locale: locale,
             timezone: timezone,

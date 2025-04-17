@@ -13,7 +13,6 @@ services:
       - MONGO_URI=mongodb://admin:admin123@mongodb:27017
       - MONGO_DB_NAME=chat_db
       - QDRANT_URI=http://host.docker.internal:6333
-      - QDRANT_DOCUMENT_STORE_STORAGE_DIR=/qdrant/storage
       - QDRANT_COLLECTION_NAME=documents
     ports:
       - 8000:8000
@@ -83,7 +82,8 @@ services:
       - MONGO_URI=mongodb://admin:admin123@mongodb:27017
       - MONGO_DB_NAME=chat_db
       - QDRANT_URI=http://host.docker.internal:6333
-      - QDRANT_DOCUMENT_STORE_STORAGE_DIR=/qdrant/storage
+      - QDRANT_URI_HOST=http://host.docker.internal
+      - QDRANT_URI_PORT=6333
       - QDRANT_COLLECTION_NAME=documents
     working_dir: /app
 

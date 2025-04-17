@@ -9,7 +9,7 @@ from haystack.components.converters import MarkdownToDocument, PyPDFToDocument, 
 from haystack.components.preprocessors import DocumentSplitter, DocumentCleaner
 from haystack.components.routers import FileTypeRouter
 from haystack.components.joiners import DocumentJoiner
-from haystack import Pipeline
+from haystack import Pipeline, component
 from haystack.components.embedders import (
     SentenceTransformersDocumentEmbedder,
     SentenceTransformersTextEmbedder
@@ -18,10 +18,11 @@ from app.services.document_stores import (
     IN_MEMORY_DOCUMENT_STORE,
     QDRANT_DOCUMENT_STORE
 )
+
 from haystack.document_stores.types import DuplicatePolicy, DocumentStore
 from haystack.components.retrievers.in_memory import InMemoryEmbeddingRetriever
 from haystack.components.generators.chat import HuggingFaceAPIChatGenerator
-from haystack.dataclasses import ChatMessage
+from haystack.dataclasses import ChatMessage, Document
 from haystack.utils import Secret
 from haystack.utils.hf import HFGenerationAPIType
 from haystack.components.builders import ChatPromptBuilder
@@ -41,10 +42,20 @@ in_memory_retriever = InMemoryEmbeddingRetriever(IN_MEMORY_DOCUMENT_STORE)
 qdrant_retriever = QdrantEmbeddingRetriever(document_store=QDRANT_DOCUMENT_STORE)
 
 
+@component
+class AddSourceMetadata:
+    @component.output_types(documents=list[Document])
+    def run(self, documents: list[Document], source_file: str):
+        for doc in documents:
+            doc.meta["source_file"] = source_file
+        return {"documents": documents}
+
+
 def build_preprocessing_pipeline(
         document_store: DocumentStore,
         file_types: list[str] = ["text/plain", "text/html", "application/pdf", "text/markdown"],
-        document_embedder: Any | None = None) -> Pipeline:
+        document_embedder: Any | None = None,
+        add_metadata: bool = False) -> Pipeline:
     """
     Return an indexing pipeline that loads the document store.
     """
@@ -80,7 +91,15 @@ def build_preprocessing_pipeline(
     preprocessing_pipeline.connect("pypdf_converter", "document_joiner")
     preprocessing_pipeline.connect("markdown_converter", "document_joiner")
     preprocessing_pipeline.connect("document_joiner", "document_cleaner")
-    preprocessing_pipeline.connect("document_cleaner", "document_splitter")
+
+    if add_metadata:
+        # Placeholder, will be replaced later with actual AddSourceMetadata component
+        preprocessing_pipeline.add_component("add_source_meta", AddSourceMetadata())
+        preprocessing_pipeline.connect("document_cleaner", "add_source_meta")
+        preprocessing_pipeline.connect("add_source_meta", "document_splitter")
+    else:
+        preprocessing_pipeline.connect("document_cleaner", "document_splitter")
+
     if document_embedder:
         preprocessing_pipeline.connect("document_splitter", "document_embedder")
         preprocessing_pipeline.connect("document_embedder", "document_writer")
@@ -261,7 +280,7 @@ def build_summary_pipeline(
 # matching document & text embedders must use the same model
 embedder_model = "sentence-transformers/all-MiniLM-L6-v2"
 
-# preprocessing
+# preprocessing (no metadata)
 IN_MEMORY_PREPROCESSING_PIPELINE = build_preprocessing_pipeline(
     document_store=IN_MEMORY_DOCUMENT_STORE,
     document_embedder=SentenceTransformersDocumentEmbedder(model=embedder_model)
@@ -269,5 +288,10 @@ IN_MEMORY_PREPROCESSING_PIPELINE = build_preprocessing_pipeline(
 QDRANT_PREPROCESSING_PIPELINE = build_preprocessing_pipeline(
     document_store=QDRANT_DOCUMENT_STORE,
     document_embedder=SentenceTransformersDocumentEmbedder(model=embedder_model)
+)
+QDRANT_PREPROCESSING_PIPELINE_W_METADATA = build_preprocessing_pipeline(
+    document_store=QDRANT_DOCUMENT_STORE,
+    document_embedder=SentenceTransformersDocumentEmbedder(model=embedder_model),
+    add_metadata=True
 )
 

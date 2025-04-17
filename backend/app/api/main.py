@@ -104,7 +104,7 @@ async def create_user(request: CreateUserRequest):
     return user
 
 
-@app.get("/info")
+@app.get("/file_info")
 async def get_app_info(request: Request):
     return {
         "document_store": "qdrant",
@@ -112,15 +112,21 @@ async def get_app_info(request: Request):
     }
 
 
-class SyncedFoldersResponse(BaseModel):
+class SyncedFolderRecord(BaseModel):
     folder_path: str
     last_synced_at: int | None
     total_files: int
     processed_files: int
+    skipped_files: int = 0
     status: str
 
 
-@app.get("/synced_folders", response_model=list[SyncedFoldersResponse])
+class SyncedFoldersResponse(BaseModel):
+    results: list[SyncedFolderRecord]
+    file_count: int
+
+
+@app.get("/synced_folders", response_model=SyncedFoldersResponse)
 async def get_synced_folders(request: Request):
     """
     Return folder syncing history
@@ -138,13 +144,67 @@ async def get_synced_folders(request: Request):
     ]
     raw_results = await SyncStatusBeanie.aggregate(pipeline).to_list()
     results = []
+    total_processed = 0
     for doc in raw_results:
         model = SyncStatusBeanie.model_validate(doc)
         model_dict = model.model_dump()  # convert to a regular dict
         model_dict["last_synced_at"] = int(model.last_synced_at.timestamp() * 1000) if model.last_synced_at else 0
         results.append(model_dict)
+        total_processed += model_dict["processed_files"]
+    return {"results": results, "file_count": total_processed}
 
-    return results
+
+class DeleteFolderPayload(BaseModel):
+    directory: str
+    home_dir: str = ""
+
+
+@app.post("/delete_folder", status_code=201)
+async def delete_folder(payload: DeleteFolderPayload):
+    """
+    Remove files previously upload from this folder.
+    """
+    if payload.directory == "all":
+        # remove all synced folders and files
+        all_docs = QDRANT_DOCUMENT_STORE.filter_documents()
+        doc_ids = [doc.id for doc in all_docs]
+        QDRANT_DOCUMENT_STORE.delete_documents(doc_ids)
+        logger.info(f"Deleted all {len(doc_ids)} documents.")
+        # also delete all sync records
+        await SyncStatusBeanie.find().delete()
+        return
+
+    sync_records = await SyncStatusBeanie.find(
+        SyncStatusBeanie.folder_path == payload.directory,
+        SyncStatusBeanie.home_dir == payload.home_dir
+    ).to_list()
+    source_files = []
+    for rec in sync_records:
+        source_files.extend(rec.source_files)
+
+    # delete documents
+    doc_filters = {
+        "operator": "AND",
+        "conditions": [
+            {"field": "meta.source_file", "operator": "in", "value": source_files}
+        ]
+    }
+    docs = QDRANT_DOCUMENT_STORE.filter_documents(
+        filters=doc_filters
+    )
+    doc_ids = [doc.id for doc in docs]
+    if len(doc_ids) > 0:
+        QDRANT_DOCUMENT_STORE.delete_documents(document_ids=doc_ids)
+        logger.info(f"Deleted {len(doc_ids)} documents from {len(source_files)} source files")
+    else:
+        logger.info(f"No documents found from {len(source_files)} source files.")
+
+    await SyncStatusBeanie.find(
+        SyncStatusBeanie.folder_path == payload.directory,
+        SyncStatusBeanie.home_dir == payload.home_dir
+    ).delete()
+
+    return
 
 
 class InsertDocumentsRequest(BaseModel):
@@ -156,6 +216,7 @@ class InsertDocumentsRequest(BaseModel):
 async def insert_documents_into_store(request: InsertDocumentsRequest):
     sync_status = await SyncStatusBeanie(
         folder_path=request.directory,
+        home_dir=request.home_dir,
         total_files=0,
         processed_files=0,
         progress_percent=0,
