@@ -20,7 +20,7 @@ function App(): JSX.Element {
   const chatStore = useChatStore()
 
   const onClickNewChat = ()=>{
-    toast("New conversation started!")
+    toast("You started a new conversation!")
     chatStore.startNewConversation()
   }
 

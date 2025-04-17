@@ -1,5 +1,3 @@
-todo: langfuse langchain ? for llm observability
-
 The app is set up using electron-vite. Separate react-only dependencies and components into renderer (separation of concerns).
 
 

@@ -1,0 +1,33 @@
+# Create network for langfuse
+# All all langfuse services to the network to ensure connectivity between them
+
+networks:
+  langfuse-net:
+    external: true  # as it's declared as an external network, we'll create it separately in Makefile
+
+services:
+  langfuse-web:
+    networks:
+      - langfuse-net
+
+  postgres:
+    networks:
+      - langfuse-net
+
+  redis:
+    networks:
+      - langfuse-net
+
+  clickhouse:
+    networks:
+      - langfuse-net
+
+  langfuse-worker:
+    networks:
+      - langfuse-net
+
+  minio:
+    networks:
+      - langfuse-net
+
+

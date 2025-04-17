@@ -1,3 +1,4 @@
 storage/*
 .DS_Store
 .pytest_cache
+infra/*
