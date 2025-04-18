@@ -3,14 +3,17 @@ Define schema for the MongoDB collection that holds folder syncing logs.
 Defined two models for SyncStatus, beanie (async) and bunnet (sync)
 to be used in FastAPI (mostly to read) and Celery (to write) correspondingly.
 """
-from beanie import Document as BeanieDocument
-from bunnet import Document as BunnetDocument
+
 from datetime import datetime
 from typing import Optional
+
+from beanie import Document as BeanieDocument
+from bunnet import Document as BunnetDocument
 
 
 class SyncStatusBeanie(BeanieDocument):
     """Async"""
+
     folder_path: str
     home_dir: str
     total_files: int
@@ -31,6 +34,7 @@ class SyncStatusBeanie(BeanieDocument):
 
 class SyncStatusBunnet(BunnetDocument):
     """Sync"""
+
     folder_path: str
     home_dir: str
     total_files: int
@@ -47,4 +51,3 @@ class SyncStatusBunnet(BunnetDocument):
 
     class Config:
         arbitrary_types_allowed = True
-

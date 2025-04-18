@@ -1,5 +1,6 @@
 import asyncio
 from datetime import UTC, datetime
+
 from app.models.chat_models import User
 from app.services.database import init_mongodb_beanie
 

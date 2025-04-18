@@ -1,23 +1,23 @@
 """
 Process the given local folders, add embedding and save them into the document store.
 """
-import os
+
 import logging
-from dotenv import load_dotenv
-from datetime import datetime, UTC
-from celery import Celery
+import os
+from datetime import UTC, datetime
+
 from bunnet import PydanticObjectId
+from celery import Celery
 from celery.signals import worker_process_init
-from app.services.pipelines import (
-    build_preprocessing_pipeline,
-    QDRANT_DOCUMENT_STORE,
-    SentenceTransformersDocumentEmbedder,
-    embedder_model
-)
+from dotenv import load_dotenv
+
+from app.api.utils import get_files_from_folder
 from app.models.status_models import SyncStatusBunnet
 from app.services.database import init_mongodb_bunnet, init_qdrant
-from app.api.utils import get_files_from_folder
-
+from app.services.pipelines import (QDRANT_DOCUMENT_STORE,
+                                    SentenceTransformersDocumentEmbedder,
+                                    build_preprocessing_pipeline,
+                                    embedder_model)
 
 if os.getenv("APP_ENV", "development").lower() == "development":
     print(f'celery: Loading dotenv for {os.getenv("APP_ENV", "development")} APP_ENV.')
@@ -25,14 +25,10 @@ if os.getenv("APP_ENV", "development").lower() == "development":
 
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(
-    level=os.environ.get('LOG_LEVEL', 'INFO').upper()
-)
+logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO").upper())
 
 
-app = Celery('sync_app',
-             broker=os.getenv("REDIS_URL"),
-             backend=os.getenv("REDIS_URL"))
+app = Celery("sync_app", broker=os.getenv("REDIS_URL"), backend=os.getenv("REDIS_URL"))
 
 
 # Pipeline needs to init after loading environment variables so do it after worker init
@@ -51,7 +47,7 @@ def init_celery(**kwargs):
     SHARED_PREPROCESSING_PIPELINE = build_preprocessing_pipeline(
         document_store=QDRANT_DOCUMENT_STORE,
         document_embedder=SentenceTransformersDocumentEmbedder(model=embedder_model),
-        add_metadata=True
+        add_metadata=True,
     )
     logger.info("SHARED_PREPROCESSING_PIPELINE initiated.")
 
@@ -66,7 +62,9 @@ def sync_folder(self, folder_path: str, actual_home_dir: str, sync_status_id: st
     if not SHARED_PREPROCESSING_PIPELINE:
         raise RuntimeError("SHARED_PREPROCESSING_PIPELINE not initialized!")
 
-    files = get_files_from_folder(folder_path=folder_path, actual_home_dir=actual_home_dir)
+    files = get_files_from_folder(
+        folder_path=folder_path, actual_home_dir=actual_home_dir
+    )
 
     file_count = len(files)
     processed_count = 0
@@ -77,18 +75,20 @@ def sync_folder(self, folder_path: str, actual_home_dir: str, sync_status_id: st
     for index, file_path in enumerate(files):
         try:
             source_file = str(file_path.resolve())
-            output = SHARED_PREPROCESSING_PIPELINE.run({
-                "file_type_router": {
-                    "sources": [file_path],
-                },
-                "add_source_meta": {
-                    "source_file": source_file
+            output = SHARED_PREPROCESSING_PIPELINE.run(
+                {
+                    "file_type_router": {
+                        "sources": [file_path],
+                    },
+                    "add_source_meta": {"source_file": source_file},
                 }
-            })
+            )
             # Check if any docs came out of the last component
             # output for a processed file: {'document_writer': {'documents_written': 90}}
             # output for a skipped file: {'file_type_router': {'unclassified': [PosixPath('/host/home/Desktop/Screenshot.png')]}}
-            last_component = "document_writer"  # or "document_embedder" if you skip writer
+            last_component = (
+                "document_writer"  # or "document_embedder" if you skip writer
+            )
             final_docs = output.get(last_component, {}).get("documents_written", [])
             if final_docs:
                 processed_count += 1
@@ -102,37 +102,57 @@ def sync_folder(self, folder_path: str, actual_home_dir: str, sync_status_id: st
         logger.info(f"Completed processsing {file_path}")
 
         # save progress
-        current = index+1
+        current = index + 1
         percent = int((current / file_count) * 100)
-        self.update_state(state='IN_PROGRESS', meta={'current': current, 'total': file_count, "file": str(file_path)})
+        self.update_state(
+            state="IN_PROGRESS",
+            meta={"current": current, "total": file_count, "file": str(file_path)},
+        )
         # Only update DB at every 10% milestone
         if percent >= milestone + PROGRESS_INTERVAL or percent == 100:
             milestone = percent
-            sync_status = SyncStatusBunnet.find_one(SyncStatusBunnet.id == PydanticObjectId(sync_status_id)).run()
-            sync_status.set({
+            sync_status = SyncStatusBunnet.find_one(
+                SyncStatusBunnet.id == PydanticObjectId(sync_status_id)
+            ).run()
+            sync_status.set(
+                {
+                    "total_files": file_count,
+                    "processed_files": processed_count,
+                    "skipped_files": skipped_count,
+                    "source_files": source_files,
+                    "progress_percent": percent,
+                    "status": "IN_PROGRESS",
+                    "last_synced_at": datetime.now(tz=UTC),
+                }
+            )
+
+    # Final update on complete
+    SyncStatusBunnet.find_one(
+        SyncStatusBunnet.id == PydanticObjectId(sync_status_id)
+    ).update(
+        {
+            "$set": {
                 "total_files": file_count,
                 "processed_files": processed_count,
                 "skipped_files": skipped_count,
                 "source_files": source_files,
-                "progress_percent": percent,
-                "status": "IN_PROGRESS",
+                "progress_percent": 100,
+                "status": "COMPLETE",
                 "last_synced_at": datetime.now(tz=UTC),
-            })
-
-    # Final update on complete
-    SyncStatusBunnet.find_one(SyncStatusBunnet.id == PydanticObjectId(sync_status_id)).update({
-        "$set": {
-            "total_files": file_count,
-            "processed_files": processed_count,
-            "skipped_files": skipped_count,
-            "source_files": source_files,
-            "progress_percent": 100,
-            "status": "COMPLETE",
-            "last_synced_at": datetime.now(tz=UTC),
+            }
         }
-    }).run()
-    self.update_state(state='SUCCESS', meta={'current': file_count, 'total': file_count, 'folder_path': folder_path})
+    ).run()
+    self.update_state(
+        state="SUCCESS",
+        meta={"current": file_count, "total": file_count, "folder_path": folder_path},
+    )
 
-    summary = {'current': file_count, 'total': file_count, 'folder_path': folder_path, "task_id": self.request.id, "status": "complete"}
+    summary = {
+        "current": file_count,
+        "total": file_count,
+        "folder_path": folder_path,
+        "task_id": self.request.id,
+        "status": "complete",
+    }
     logger.info(summary)
     return summary

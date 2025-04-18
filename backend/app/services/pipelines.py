@@ -2,36 +2,38 @@
 Haystack pipelines
 """
 
-import os
 import logging
+import os
 from typing import Any
-from haystack.components.writers import DocumentWriter
-from haystack.components.converters import MarkdownToDocument, PyPDFToDocument, TextFileToDocument
-from haystack.components.preprocessors import DocumentSplitter, DocumentCleaner
-from haystack.components.routers import FileTypeRouter
-from haystack.components.joiners import DocumentJoiner
+
 from haystack import Pipeline, component
+from haystack.components.builders import AnswerBuilder, ChatPromptBuilder
+from haystack.components.converters import (MarkdownToDocument,
+                                            PyPDFToDocument,
+                                            TextFileToDocument)
 from haystack.components.embedders import (
-    SentenceTransformersDocumentEmbedder,
-    SentenceTransformersTextEmbedder
-)
-from app.services.document_stores import (
-    IN_MEMORY_DOCUMENT_STORE,
-    QDRANT_DOCUMENT_STORE
-)
-from haystack_integrations.components.connectors.langfuse import LangfuseConnector
-from haystack.document_stores.types import DuplicatePolicy, DocumentStore
-from haystack.components.retrievers.in_memory import InMemoryEmbeddingRetriever
+    SentenceTransformersDocumentEmbedder, SentenceTransformersTextEmbedder)
 from haystack.components.generators.chat import HuggingFaceAPIChatGenerator
+from haystack.components.joiners import DocumentJoiner
+from haystack.components.preprocessors import DocumentCleaner, DocumentSplitter
+from haystack.components.retrievers.in_memory import InMemoryEmbeddingRetriever
+from haystack.components.routers import FileTypeRouter
+from haystack.components.writers import DocumentWriter
 from haystack.dataclasses import ChatMessage, Document
+from haystack.document_stores.types import DocumentStore, DuplicatePolicy
 from haystack.utils import Secret
 from haystack.utils.hf import HFGenerationAPIType
-from haystack.components.builders import ChatPromptBuilder
-from haystack.components.builders import AnswerBuilder
-from haystack_integrations.components.retrievers.qdrant import QdrantEmbeddingRetriever
-from haystack_integrations.components.generators.google_ai import GoogleAIGeminiChatGenerator
-from haystack_integrations.components.generators.ollama import OllamaChatGenerator
+from haystack_integrations.components.connectors.langfuse import \
+    LangfuseConnector
+from haystack_integrations.components.generators.google_ai import \
+    GoogleAIGeminiChatGenerator
+from haystack_integrations.components.generators.ollama import \
+    OllamaChatGenerator
+from haystack_integrations.components.retrievers.qdrant import \
+    QdrantEmbeddingRetriever
 
+from app.services.document_stores import (IN_MEMORY_DOCUMENT_STORE,
+                                          QDRANT_DOCUMENT_STORE)
 
 logger = logging.getLogger(__name__)
 
@@ -50,46 +52,81 @@ class AddSourceMetadata:
 
 
 def build_preprocessing_pipeline(
-        document_store: DocumentStore,
-        file_types: list[str] = ["text/plain", "text/html", "application/pdf", "text/markdown"],
-        document_embedder: Any | None = None,
-        add_metadata: bool = False) -> Pipeline:
+    document_store: DocumentStore,
+    file_types: list[str] = [
+        "text/plain",
+        "text/html",
+        "application/pdf",
+        "text/markdown",
+    ],
+    document_embedder: Any | None = None,
+    add_metadata: bool = False,
+) -> Pipeline:
     """
     Return an indexing pipeline that loads the document store.
     """
     logger.info(
-        f'langfuse env vars: {os.getenv("LANGFUSE_HOST")=}, {os.getenv("LANGFUSE_PUBLIC_KEY")=}, {os.getenv("LANGFUSE_SECRET_KEY")=}')
+        f'langfuse env vars: {os.getenv("LANGFUSE_HOST")=}, {os.getenv("LANGFUSE_PUBLIC_KEY")=}, {os.getenv("LANGFUSE_SECRET_KEY")=}'
+    )
 
     preprocessing_pipeline = Pipeline()
 
-    preprocessing_pipeline.add_component("tracer", LangfuseConnector(name="Pre-processing pipeline"))
+    preprocessing_pipeline.add_component(
+        "tracer", LangfuseConnector(name="Pre-processing pipeline")
+    )
 
     text_file_converter = TextFileToDocument()
     markdown_converter = MarkdownToDocument()
     pdf_converter = PyPDFToDocument()
     document_joiner = DocumentJoiner()
     document_cleaner = DocumentCleaner()
-    document_splitter = DocumentSplitter(split_by="word", split_length=150, split_overlap=50)
+    document_splitter = DocumentSplitter(
+        split_by="word", split_length=150, split_overlap=50
+    )
 
     file_type_router = FileTypeRouter(mime_types=file_types)
-    preprocessing_pipeline.add_component(instance=file_type_router, name="file_type_router")
+    preprocessing_pipeline.add_component(
+        instance=file_type_router, name="file_type_router"
+    )
     # todo: allow customize file_types
     # https://docs.haystack.deepset.ai/docs/converters
-    preprocessing_pipeline.add_component(instance=text_file_converter, name="text_file_converter")
-    preprocessing_pipeline.add_component(instance=markdown_converter, name="markdown_converter")
+    preprocessing_pipeline.add_component(
+        instance=text_file_converter, name="text_file_converter"
+    )
+    preprocessing_pipeline.add_component(
+        instance=markdown_converter, name="markdown_converter"
+    )
     preprocessing_pipeline.add_component(instance=pdf_converter, name="pypdf_converter")
-    preprocessing_pipeline.add_component(instance=document_joiner, name="document_joiner")
-    preprocessing_pipeline.add_component(instance=document_cleaner, name="document_cleaner")
-    preprocessing_pipeline.add_component(instance=document_splitter, name="document_splitter")
+    preprocessing_pipeline.add_component(
+        instance=document_joiner, name="document_joiner"
+    )
+    preprocessing_pipeline.add_component(
+        instance=document_cleaner, name="document_cleaner"
+    )
+    preprocessing_pipeline.add_component(
+        instance=document_splitter, name="document_splitter"
+    )
     if document_embedder:
-        preprocessing_pipeline.add_component(instance=document_embedder, name="document_embedder")
+        preprocessing_pipeline.add_component(
+            instance=document_embedder, name="document_embedder"
+        )
     # set duplicate policy to be "overwrite"
-    document_writer = DocumentWriter(document_store=document_store, policy=DuplicatePolicy.OVERWRITE)
-    preprocessing_pipeline.add_component(instance=document_writer, name="document_writer")
+    document_writer = DocumentWriter(
+        document_store=document_store, policy=DuplicatePolicy.OVERWRITE
+    )
+    preprocessing_pipeline.add_component(
+        instance=document_writer, name="document_writer"
+    )
 
-    preprocessing_pipeline.connect("file_type_router.text/plain", "text_file_converter.sources")
-    preprocessing_pipeline.connect("file_type_router.application/pdf", "pypdf_converter.sources")
-    preprocessing_pipeline.connect("file_type_router.text/markdown", "markdown_converter.sources")
+    preprocessing_pipeline.connect(
+        "file_type_router.text/plain", "text_file_converter.sources"
+    )
+    preprocessing_pipeline.connect(
+        "file_type_router.application/pdf", "pypdf_converter.sources"
+    )
+    preprocessing_pipeline.connect(
+        "file_type_router.text/markdown", "markdown_converter.sources"
+    )
     preprocessing_pipeline.connect("text_file_converter", "document_joiner")
     preprocessing_pipeline.connect("pypdf_converter", "document_joiner")
     preprocessing_pipeline.connect("markdown_converter", "document_joiner")
@@ -113,11 +150,12 @@ def build_preprocessing_pipeline(
 
 
 def _build_rag_pipeline(
-        retriever,
-        text_embedder,
-        llm_provider: str,
-        llm_model: str,
-        llm_api_token: str | None = None):
+    retriever,
+    text_embedder,
+    llm_provider: str,
+    llm_model: str,
+    llm_api_token: str | None = None,
+):
     """
     Return a RAG pipeline.
     """
@@ -155,16 +193,17 @@ Answer:
             """
         )
     ]
-    prompt_builder = ChatPromptBuilder(template=user_message_template,
-                                       variables=["query", "documents", "memories"],
-                                       required_variables=["query", "documents", "memories"])
+    prompt_builder = ChatPromptBuilder(
+        template=user_message_template,
+        variables=["query", "documents", "memories"],
+        required_variables=["query", "documents", "memories"],
+    )
     basic_rag_pipeline.add_component("prompt_builder", prompt_builder)
 
     # toggle between generators
     if llm_provider == "ollama":
         generator = OllamaChatGenerator(
-            url=os.getenv("OLLAMA_LLM_BASE_URL"),
-            model=llm_model
+            url=os.getenv("OLLAMA_LLM_BASE_URL"), model=llm_model
         )
     elif llm_provider == "huggingFace":
         generator = HuggingFaceAPIChatGenerator(
@@ -179,7 +218,7 @@ Answer:
         generator = GoogleAIGeminiChatGenerator(
             # api_key=Secret.from_env_var("GOOGLE_API_KEY"),
             api_key=Secret.from_token(llm_api_token),
-            model=llm_model
+            model=llm_model,
         )
     basic_rag_pipeline.add_component("generator", generator)
 
@@ -199,41 +238,42 @@ Answer:
 
 
 def build_rag_pipeline_in_memory(
-        llm_provider: str,
-        llm_model: str,
-        llm_api_token: str | None = None):
+    llm_provider: str, llm_model: str, llm_api_token: str | None = None
+):
     return _build_rag_pipeline(
         retriever=InMemoryEmbeddingRetriever(IN_MEMORY_DOCUMENT_STORE),
         text_embedder=SentenceTransformersTextEmbedder(model=embedder_model),
         llm_provider=llm_provider,
         llm_model=llm_model,
-        llm_api_token=llm_api_token
+        llm_api_token=llm_api_token,
     )
 
 
 def build_rag_pipeline_in_qdrant(
-        llm_provider: str,
-        llm_model: str,
-        llm_api_token: str | None = None):
+    llm_provider: str, llm_model: str, llm_api_token: str | None = None
+):
     return _build_rag_pipeline(
-        retriever=QdrantEmbeddingRetriever(document_store=QDRANT_DOCUMENT_STORE, top_k=5),
+        retriever=QdrantEmbeddingRetriever(
+            document_store=QDRANT_DOCUMENT_STORE, top_k=5
+        ),
         text_embedder=SentenceTransformersTextEmbedder(model=embedder_model),
         llm_provider=llm_provider,
         llm_model=llm_model,
-        llm_api_token=llm_api_token
+        llm_api_token=llm_api_token,
     )
 
 
 def build_summary_pipeline(
-        llm_provider: str,
-        llm_model: str,
-        llm_api_token: str | None = None):
+    llm_provider: str, llm_model: str, llm_api_token: str | None = None
+):
     """
     Return a pipeline to take past conversation messages and return a summary.
     """
     summary_pipeline = Pipeline()
 
-    summary_pipeline.add_component("tracer", LangfuseConnector(name="Chat summary pipeline"))
+    summary_pipeline.add_component(
+        "tracer", LangfuseConnector(name="Chat summary pipeline")
+    )
 
     # Add components to your pipeline
     user_message_template = [
@@ -248,29 +288,29 @@ def build_summary_pipeline(
             """
         )
     ]
-    prompt_builder = ChatPromptBuilder(template=user_message_template,
-                                       variables=["memories"],
-                                       required_variables=["memories"])
+    prompt_builder = ChatPromptBuilder(
+        template=user_message_template,
+        variables=["memories"],
+        required_variables=["memories"],
+    )
     summary_pipeline.add_component("prompt_builder", prompt_builder)
 
     # toggle between generators
     if llm_provider == "ollama":
         generator = OllamaChatGenerator(
-            url=os.getenv("OLLAMA_LLM_BASE_URL"),
-            model=llm_model
+            url=os.getenv("OLLAMA_LLM_BASE_URL"), model=llm_model
         )
     elif llm_provider == "huggingFace":
         generator = HuggingFaceAPIChatGenerator(
             api_type=HFGenerationAPIType.SERVERLESS_INFERENCE_API,  # free version LLM
             api_params={"model": llm_model},
-            token=Secret.from_token(llm_api_token)
+            token=Secret.from_token(llm_api_token),
         )
     else:
         # https://ai.google.dev/gemini-api/docs/models
         # https://ai.google.dev/gemini-api/docs/rate-limits
         generator = GoogleAIGeminiChatGenerator(
-            api_key=Secret.from_token(llm_api_token),
-            model=llm_model
+            api_key=Secret.from_token(llm_api_token), model=llm_model
         )
     summary_pipeline.add_component("generator", generator)
 
@@ -290,5 +330,5 @@ embedder_model = "sentence-transformers/all-MiniLM-L6-v2"
 # preprocessing (no metadata)
 IN_MEMORY_PREPROCESSING_PIPELINE = build_preprocessing_pipeline(
     document_store=IN_MEMORY_DOCUMENT_STORE,
-    document_embedder=SentenceTransformersDocumentEmbedder(model=embedder_model)
+    document_embedder=SentenceTransformersDocumentEmbedder(model=embedder_model),
 )

@@ -3,13 +3,15 @@ Haystack document stores
 """
 
 import os
+
 from dotenv import load_dotenv
 from haystack.document_stores.in_memory import InMemoryDocumentStore
 from haystack_integrations.document_stores.qdrant import QdrantDocumentStore
 
-
 if os.getenv("APP_ENV", "development").lower() == "development":
-    print(f'document_stores: Loading dotenv for {os.getenv("APP_ENV", "development")} APP_ENV.')
+    print(
+        f'document_stores: Loading dotenv for {os.getenv("APP_ENV", "development")} APP_ENV.'
+    )
     load_dotenv()
 
 
@@ -36,4 +38,8 @@ QDRANT_DOCUMENT_STORE = QdrantDocumentStore(
 ###
 # Default selection based on config
 ###
-DEFAULT_DOCUMENT_STORE = QDRANT_DOCUMENT_STORE if DOCUMENT_STORE_NAME == "qdrant" else IN_MEMORY_DOCUMENT_STORE
+DEFAULT_DOCUMENT_STORE = (
+    QDRANT_DOCUMENT_STORE
+    if DOCUMENT_STORE_NAME == "qdrant"
+    else IN_MEMORY_DOCUMENT_STORE
+)

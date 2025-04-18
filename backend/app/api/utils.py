@@ -1,9 +1,11 @@
-import os
 import logging
+import os
 from pathlib import Path
-from haystack.dataclasses import ChatMessage
-from app.models.chat_models import Message, Conversation, User
+
 from beanie import PydanticObjectId
+from haystack.dataclasses import ChatMessage
+
+from app.models.chat_models import Conversation, Message, User
 from app.services.pipelines import build_summary_pipeline
 
 logger = logging.getLogger(__name__)
@@ -16,18 +18,22 @@ def format_chat_history(chat_history: list[Message]) -> list[ChatMessage]:
     memories = []
     for chat_message in chat_history:
         if chat_message.query:
-            user_chat = ChatMessage.from_user(text=chat_message.query,
-                                              meta={"timestamp": chat_message.query_created_at})
+            user_chat = ChatMessage.from_user(
+                text=chat_message.query,
+                meta={"timestamp": chat_message.query_created_at},
+            )
             memories.append(user_chat)
         if chat_message.response:
-            bot_chat = ChatMessage.from_system(text=chat_message.response,
-                                               meta={
-                                                    "sender": "bot",
-                                                    "timestamp": chat_message.response_created_at,
-                                                    "model": chat_message.model,
-                                                    "finish_reason": chat_message.finish_reason,
-                                                    "documents": chat_message.documents,
-                                               })
+            bot_chat = ChatMessage.from_system(
+                text=chat_message.response,
+                meta={
+                    "sender": "bot",
+                    "timestamp": chat_message.response_created_at,
+                    "model": chat_message.model,
+                    "finish_reason": chat_message.finish_reason,
+                    "documents": chat_message.documents,
+                },
+            )
             memories.append(bot_chat)
     return memories
 
@@ -43,8 +49,11 @@ async def extract_conversation_summary(conversation_id: str) -> dict:
     if conversation.summary:
         return {"summary": conversation.summary, "conversation_id": conversation_id}
 
-    prev_messages = await Message.find(
-        Message.conversation.id == PydanticObjectId(conversation.id)).sort("query_created_at").to_list()
+    prev_messages = (
+        await Message.find(Message.conversation.id == PydanticObjectId(conversation.id))
+        .sort("query_created_at")
+        .to_list()
+    )
 
     if len(prev_messages) == 0:
         return {"error": "No message found in conversation."}
@@ -54,12 +63,14 @@ async def extract_conversation_summary(conversation_id: str) -> dict:
     SUMMARY_PIPELINE = build_summary_pipeline(
         llm_provider=user_setting.llm_provider,
         llm_model=user_setting.llm_model,
-        llm_api_token=user_setting.llm_api_token
+        llm_api_token=user_setting.llm_api_token,
     )
-    answer_raw = SUMMARY_PIPELINE.run(data={
-        "prompt_builder": {"memories": memories},
-        "answer_builder": {"query": "Summarize this conversation"}  # dummy query
-    })
+    answer_raw = SUMMARY_PIPELINE.run(
+        data={
+            "prompt_builder": {"memories": memories},
+            "answer_builder": {"query": "Summarize this conversation"},  # dummy query
+        }
+    )
     top_answer = answer_raw["answer_builder"]["answers"][0]
 
     # save summary to conversation
@@ -78,7 +89,7 @@ async def get_user_settings() -> User:
             timezone="America/Los_Angeles",
             llm_provider="gemini",
             llm_api_token=None,
-            llm_model="gemini-2.0-flash"
+            llm_model="gemini-2.0-flash",
         ).insert()
     elif len(users) > 1:
         user = users[0]

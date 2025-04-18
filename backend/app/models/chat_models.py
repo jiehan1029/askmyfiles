@@ -1,15 +1,18 @@
 """
 Define schema for the MongoDB collection that holds user chat histories.
 """
-from beanie import Document, Link
+
 from datetime import UTC, datetime
 from typing import Optional
+
+from beanie import Document, Link
 
 
 class User(Document):
     """
     todo: pause: not supporting multi user now
     """
+
     username: str
     locale: str = "en-US"  # IETF BCP 47 locale tags for frontend compatibility
     timezone: str = "America/Los_Angeles"  # BCP 47 language tags (FE compatible)
@@ -51,9 +54,10 @@ class Message(Document):
     """
     Save user query and bot response in the same document to avoid duplicated storage of queries.
     """
+
     conversation: Link[Conversation]
     user: Optional[Link[User]] | None = None
-    query: str | None = None   # user's question
+    query: str | None = None  # user's question
     response: str | None = None  # bot's response
     model: Optional[str] = None  # the model used for response generation
     finish_reason: Optional[str | int] = None  # why the generation stopped
