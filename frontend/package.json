@@ -4,7 +4,7 @@
   "description": "An Electron application with React and TypeScript",
   "main": "./out/main/index.js",
   "author": "Jie Han <jiehan1029@gmail.com>",
-  "homepage": "https://github.com/jiehan1029",
+  "homepage": "https://github.com/jiehan1029/askmyfiles",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",

@@ -14,7 +14,7 @@ export function HelpView() {
         <div className="p-2 pb-12 overflow-scroll">
             <div className="flex flex-row justify-start items-center">
                 <span className="text-sm">Contact Me:</span>
-                <a href="https://github.com" target='_blank' style={{ marginRight: '20px', marginLeft: '20px'}}><img alt="Github logo" className='w-[20px]' src={GithubMark} /></a>
+                <a href="https://github.com/jiehan1029/askmyfiles" target='_blank' style={{ marginRight: '20px', marginLeft: '20px'}}><img alt="Github logo" className='w-[20px]' src={GithubMark} /></a>
                 <a href="mailto:jiehan1029@gmail.com?subject=Feedback for AskMyFile" target='_blank'><Mail className="w-[20px]" /></a>
             </div>
             <Separator style={{ marginTop: '12px', marginBottom: '12px'}} />
