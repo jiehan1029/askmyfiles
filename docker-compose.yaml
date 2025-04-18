@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
     volumes:
       - ./backend/app:/app/app
-      - ./storage/qdrant:/qdrant/storage  # align with qdrant storage mounted
+      - qdrant_data:/qdrant/storage
     environment:
       - APP_ENV=development
       - REDIS_URL=redis://redis_backend:6379/0
@@ -31,7 +31,7 @@ services:
     ports:
       - "27017:27017"
     volumes:
-      - ./storage/mongodb:/data/db
+      - mongodb_data:/data/db
     environment:
       - MONGO_INITDB_ROOT_USERNAME=admin
       - MONGO_INITDB_ROOT_PASSWORD=admin123
@@ -51,7 +51,7 @@ services:
       - 6334
       - 6335
     volumes:
-      - ./storage/qdrant:/qdrant/storage  # mount persisted volume
+      - qdrant_data:/qdrant/storage  # mount persisted volume
       - ./backend/config/qdrant/local.yaml:/qdrant/config/local.yaml  # Mount config file
       - ./backend/config/qdrant/development.yaml:/qdrant/config/development.yaml
       - ./backend/config/qdrant/production.yaml:/qdrant/config/production.yaml
@@ -68,7 +68,7 @@ services:
     ports:
       - "6380:6379"  # use host port 6380 because langfuse redis took 6379
     volumes:
-      - ./storage/redis:/data
+      - redis_data:/data
     command: redis-server --appendonly yes
     networks:
       - default
@@ -86,7 +86,7 @@ services:
       - redis_backend
     volumes:
       - ./backend/app:/app/app
-      - ./storage/qdrant:/qdrant/storage  # align with qdrant storage mounted
+      - qdrant_data:/qdrant/storage  # align with qdrant storage mounted
       - ~/:/host/home  # Mount the entire home directory on Unix-like systems
       # - /c/Users/YourUsername:/host/home  # Mount the user's home directory on Windows
     environment:
@@ -108,10 +108,10 @@ services:
       - langfuse-net
 
 
-# volumes:
-#   mongodb_data:
-#     driver: local
-
+volumes:
+  mongodb_data:
+  qdrant_data:
+  redis_data:
 
 networks:
   default:

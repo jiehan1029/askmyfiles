@@ -5,16 +5,19 @@ services:
     ports:
       - 7869:11434
     volumes:
-      - ./storage/ollama:/root/.ollama
+      - ollama:/root/.ollama
     pull_policy: always
     tty: true
     restart: always
+    networks:
+      - default
+      - langfuse-net
 
   ollama-webui:
     image: ghcr.io/open-webui/open-webui:main
     container_name: ollama-webui
     volumes:
-      - ./storage/ollama-webui:/app/backend/data
+      - ollama_webui:/app/backend/data
     depends_on:
       - ollama
     ports:
@@ -33,6 +36,9 @@ services:
       - default
       - langfuse-net
 
+volumes:
+  ollama:
+  ollama_webui:
 
 networks:
   default:

@@ -10,6 +10,7 @@ MINIO_SECRET_KEY=miniosecret
 BUCKET_NAME=langfuse
 
 .PHONY: \
+	frontend_up \
 	run_backend \
 	run_ollama \
 	run_api_local \
@@ -25,6 +26,9 @@ BUCKET_NAME=langfuse
 	langfuse-override \
 	langfuse-network \
 	langfuse-create-bucket
+
+frontend_up: # run preview
+	cd ${FRONTEND_DIR} && npm run preview
 
 # start api & databases & celery worker in docker
 run_backend: langfuse-up
