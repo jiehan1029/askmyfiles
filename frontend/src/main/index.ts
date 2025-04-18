@@ -15,7 +15,7 @@ function createWindow(): void {
     show: false,
     icon: is.dev
       ? join(__dirname, '../../resources/icon.png')
-      : join(__dirname, '../resources/icon.png'),
+      : join(__dirname, '../resources/icon.png'), // different path for production build
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
@@ -26,8 +26,11 @@ function createWindow(): void {
   })
 
   // set app icon for mac when dev
+  // do NOT setIcon for pacakged app as it would break the build
   if (process.platform === 'darwin' && app.dock) {
-    app.dock.setIcon(join(__dirname, '../../resources/icon.png'))
+    if (is.dev) {
+      app.dock.setIcon(join(__dirname, `../../resources/icon.png`))
+    }
   }
 
   mainWindow.on('ready-to-show', () => {

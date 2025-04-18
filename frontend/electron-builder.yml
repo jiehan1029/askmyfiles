@@ -19,7 +19,7 @@ win:
   target:
     - nsis
 mac:
-  icon: resources/icon.icns
+  icon: resources/icon.png
   target:
     - dmg
     - zip

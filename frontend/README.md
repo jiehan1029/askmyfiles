@@ -24,6 +24,8 @@ check build: use this cmd to extract the app.asar
 ```
 npx asar extract dist/mac-arm64/AskMyFiles.app/Contents/Resources/app.asar extracted-app
 ```
+launch app
+dist/mac-arm64/AskMyFiles.app/Contents/MacOS/AskMyFiles
 
 
 # frontend
