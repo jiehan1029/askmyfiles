@@ -20,6 +20,11 @@ use different package.json in root frontend/ and renderer/ but share same vite c
 also put the shadcn components into a shared folder under /src, this will make import alias resolution much easier too.
 
 
+check build: use this cmd to extract the app.asar
+```
+npx asar extract dist/mac-arm64/AskMyFiles.app/Contents/Resources/app.asar extracted-app
+```
+
 
 # frontend
 

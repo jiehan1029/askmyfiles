@@ -20,6 +20,9 @@ win:
     - nsis
 mac:
   icon: resources/icon.icns
+  target:
+    - dmg
+    - zip
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     NSDocumentsFolderUsageDescription: "Application requests access to the user's Documents folder."
@@ -28,11 +31,12 @@ mac:
 dmg:
   artifactName: "${name}-${version}.${ext}"
 linux:
+  icon: resources/icon.png
   target:
     - AppImage
     - snap
     - deb
-  maintainer: electronjs.org
+  maintainer: jiehan1029@gmail.com
   category: Utility
 appImage:
   artifactName: "${name}-${version}.${ext}"
