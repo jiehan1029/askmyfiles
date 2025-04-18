@@ -4,7 +4,7 @@ import { ChatInput } from '@renderer/shared/components/ui/chat/chat-input'
 import { Button } from '@renderer/shared/components/ui/button'
 import { CornerDownLeft } from 'lucide-react';
 import RobotLogo from '@renderer/assets/logo.png'
-import FacePic from '@renderer/assets/face_2.png'
+import FacePic from '@renderer/assets/face.png'
 import useChatStore from '@renderer/store/chatStore'
 import useChatHistoryStore from '@renderer/store/chatHistoryStore';
 import { useState, useEffect } from "react"

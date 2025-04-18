@@ -39,10 +39,6 @@ logger = logging.getLogger(__name__)
 # matching document & text embedders must use the same model
 embedder_model = "sentence-transformers/all-MiniLM-L6-v2"
 
-# retrievers
-in_memory_retriever = InMemoryEmbeddingRetriever(IN_MEMORY_DOCUMENT_STORE)
-qdrant_retriever = QdrantEmbeddingRetriever(document_store=QDRANT_DOCUMENT_STORE)
-
 
 @component
 class AddSourceMetadata:
@@ -136,25 +132,26 @@ def _build_rag_pipeline(
     user_message_template = [
         ChatMessage.from_user(
             """
-            Given the conversation history and the provided supporting documents, give a brief answer to the question.
-            Note that supporting documents are not part of the conversation.
-            Use conversation history only if necessary.
-            If the conversation history is empty, DO NOT including them in generating the answer.
-            If question can't be answered from supporting documents, try to answer from your knowledge but state clearly no supporting document found.
-            Do not rewrite the query.
+Answer the question based on the documents below. Use the conversation history only if needed to clarify the question.
 
-            Conversation history:
-            {% for message in memories %}
-                {{ message.text }}
-            {% endfor %}
+- If no document is relevant, answer using your knowledge and say that no supporting document was found.
+- Keep the answer brief and factual.
+- Don't rephrase the question.
 
-            Supporting documents:
-            {% for document in documents %}
-                {{ document.content }}
-            {% endfor %}
+{% if memories %}
+Conversation:
+{% for message in memories %}
+{{ message.role.capitalize() }}: {{ message.text }}
+{% endfor %}
+{% endif %}
 
-            Question: {{query}}
-            Answer:
+Documents:
+{% for document in documents %}
+{{ document.content }}
+{% endfor %}
+
+Question: {{ query }}
+Answer:
             """
         )
     ]
@@ -219,7 +216,7 @@ def build_rag_pipeline_in_qdrant(
         llm_model: str,
         llm_api_token: str | None = None):
     return _build_rag_pipeline(
-        retriever=QdrantEmbeddingRetriever(document_store=QDRANT_DOCUMENT_STORE),
+        retriever=QdrantEmbeddingRetriever(document_store=QDRANT_DOCUMENT_STORE, top_k=5),
         text_embedder=SentenceTransformersTextEmbedder(model=embedder_model),
         llm_provider=llm_provider,
         llm_model=llm_model,

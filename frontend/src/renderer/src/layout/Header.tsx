@@ -1,4 +1,4 @@
-import LogoOutlined from '../assets/logo_outline_2.svg'
+import LogoOutlined from '../assets/logo_outline.svg'
 
 export function AppHeader() {
     return <>

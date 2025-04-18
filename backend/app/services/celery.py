@@ -35,8 +35,7 @@ app = Celery('sync_app',
              backend=os.getenv("REDIS_URL"))
 
 
-# Use a global pipeline instance for celery workers
-# This needs to init after loading environment variables
+# Pipeline needs to init after loading environment variables so do it after worker init
 SHARED_PREPROCESSING_PIPELINE = None
 
 
@@ -49,15 +48,12 @@ def init_celery(**kwargs):
     logger.info("Qdrant initiated.")
 
     global SHARED_PREPROCESSING_PIPELINE
-    if not SHARED_PREPROCESSING_PIPELINE:
-        SHARED_PREPROCESSING_PIPELINE = build_preprocessing_pipeline(
-            document_store=QDRANT_DOCUMENT_STORE,
-            document_embedder=SentenceTransformersDocumentEmbedder(model=embedder_model),
-            add_metadata=True
-        )
-        logger.info("SHARED_PREPROCESSING_PIPELINE initiated.")
-    else:
-        logger.info("SHARED_PREPROCESSING_PIPELINE already initiated.")
+    SHARED_PREPROCESSING_PIPELINE = build_preprocessing_pipeline(
+        document_store=QDRANT_DOCUMENT_STORE,
+        document_embedder=SentenceTransformersDocumentEmbedder(model=embedder_model),
+        add_metadata=True
+    )
+    logger.info("SHARED_PREPROCESSING_PIPELINE initiated.")
 
 
 @app.task(bind=True)

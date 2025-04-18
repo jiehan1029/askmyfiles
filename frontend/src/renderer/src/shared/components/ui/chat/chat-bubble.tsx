@@ -143,6 +143,10 @@ const ChatBubbleTimestamp: React.FC<ChatBubbleTimestampProps> = ({
 // ChatBubbleAction
 type ChatBubbleActionProps = typeof buttonVariants & {
   icon: React.ReactNode;
+  variant: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link" | null | undefined
+  size: "default" | "sm" | "lg" | "icon" | null | undefined
+  className: string | undefined
+  onClick: React.MouseEventHandler<HTMLButtonElement> | undefined
 };
 
 const ChatBubbleAction: React.FC<ChatBubbleActionProps> = ({

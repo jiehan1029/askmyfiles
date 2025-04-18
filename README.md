@@ -7,3 +7,7 @@ Search text in all contents of the files (instead of filenames) given a collecti
 Tech stack:
 Python (FastAPI), Electron + React, AI packages.
 
+todo:
+cleanup makefile
+doc
+electronapp manifest etc

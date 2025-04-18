@@ -14,10 +14,41 @@ import { Separator } from "@renderer/shared/components/ui/separator"
 import useChatStore from './store/chatStore'
 import { Toaster } from '@renderer/shared/components/ui/sonner'
 import { toast } from "sonner"
+import { useEffect, useState } from "react"
+import useSettingsStore from './store/settingsStore'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@renderer/shared/components/ui/alert-dialog"
 
 
 function App(): JSX.Element {
+  const [alertOpen, setAlertOpen] = useState<boolean>(false)
   const chatStore = useChatStore()
+  const settingStore = useSettingsStore()
+
+  useEffect(()=>{
+    settingStore.fetchSettings()
+  }, [])
+
+  useEffect(()=>{
+    if(settingStore.settingsLoaded){
+      if(!settingStore.llmProvider){
+        setAlertOpen(true)
+      }else if(!settingStore.llmModel){
+        setAlertOpen(true)
+      } else if(!settingStore.llmApiToken && (settingStore.llmProvider !== "ollama")){
+        setAlertOpen(true)
+      } else {
+        setAlertOpen(false)
+      }
+    }
+  }, [settingStore.settingsLoaded])
 
   const onClickNewChat = ()=>{
     toast("You started a new conversation!")
@@ -59,6 +90,20 @@ function App(): JSX.Element {
       </main>
       <Toaster position="top-right"/>
       <AppFooter />
+
+      <AlertDialog open={alertOpen} onOpenChange={setAlertOpen}>
+        <AlertDialogContent className="bg-background text-foreground">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Finish setting up the app</AlertDialogTitle>
+            <AlertDialogDescription>
+            To get started, complete the app settings. Click the gear icon in the left sidebar to configure it.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={()=>setAlertOpen(false)}>Got it</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   )
 }

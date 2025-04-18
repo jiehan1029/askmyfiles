@@ -4,13 +4,18 @@ import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import os from 'os'
 
+// store window globally to prevent it to be garbage collected
+let mainWindow: BrowserWindow | null = null
+
 function createWindow(): void {
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 900,
     height: 970,
     show: false,
-    icon: join(__dirname, './resources/icon.png'),
+    icon: is.dev
+      ? join(__dirname, '../../resources/icon.png')
+      : join(__dirname, '../resources/icon.png'),
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
@@ -20,8 +25,15 @@ function createWindow(): void {
     }
   })
 
+  // set app icon for mac when dev
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setIcon(join(__dirname, '../../resources/icon.png'))
+  }
+
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+    if (mainWindow) {
+      mainWindow.show()
+    }
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -29,12 +41,22 @@ function createWindow(): void {
     return { action: 'deny' }
   })
 
+  // for debugging loading failures
+  mainWindow.webContents.on('did-fail-load', (event, errorCode, errorDescription) => {
+    console.error('Window failed to load:', event, errorCode, errorDescription)
+  })
+
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    console.log('Trying to load for dev:', process.env['ELECTRON_RENDERER_URL'])
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    // production build will put index.html into out folder
+    console.log('Trying to load from:', join(__dirname, '../renderer/index.html'))
+    mainWindow.loadFile(join(__dirname, '../renderer/index.html')).catch((err) => {
+      console.error('Failed to load index.html:', err)
+    })
   }
 }
 

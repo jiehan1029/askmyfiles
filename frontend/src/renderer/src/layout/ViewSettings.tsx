@@ -115,7 +115,11 @@ export function SettingsView() {
             {settingsStore.settingsLoaded && (<>
             <section>
                 <h3 className="text-lg" style={{fontWeight: 600}}>LLM Provider Settings</h3>
-                <sub>Select LLM to generate the answer and enter your API Token for the provider.</sub>
+                <sub>
+                Select an LLM provider and enter your API token to enable answer generation.
+                <br />
+                If you're using Ollama, the API token is not required — just make sure the model is configured in the Ollama dashboard.
+                </sub>
                 <div className="flex flex-row items-center justify-start" style={{ marginBottom: '12px', marginTop: '12px'}}>
                     <div className="w-[100px]">Provider</div>
                     <Select value={provider} onValueChange={onSelectProvider}>

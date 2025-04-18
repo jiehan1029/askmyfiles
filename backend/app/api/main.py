@@ -30,6 +30,10 @@ logging.basicConfig(
 )
 
 
+# global RAG_PIPELINE
+RAG_PIPELINE = 0
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print("FastAPI app is starting up.")
@@ -95,6 +99,7 @@ class CreateUserRequest(BaseModel):
 async def create_user(request: CreateUserRequest):
     """
     todo: pause: not supporting multi user atm
+    Endpoint not used now.
     """
     found_user = await User.find({"username": request.username}).first_or_none()
     if found_user:
@@ -104,11 +109,38 @@ async def create_user(request: CreateUserRequest):
     return user
 
 
-@app.get("/file_info")
-async def get_app_info(request: Request):
+@app.get("/app_ready")
+async def get_app_ready_status(request: Request):
+    user_setting = await get_user_settings()
+    if not user_setting.llm_provider:
+        logger.info("Missing user_setting.llm_provider, app is not ready.")
+        return {
+            "settings_ready": False
+        }
+    if not user_setting.llm_model:
+        logger.info("Missing user_setting.llm_model, app is not ready.")
+        return {
+            "settings_ready": False
+        }
+    if not user_setting.llm_api_token:
+        if user_setting.llm_provider != "ollama":
+            logger.info("Missing user_setting.llm_api_token for non-ollama provider, app is not ready.")
+            return {
+                "settings_ready": False
+            }
+
+    global RAG_PIPELINE
+    if not RAG_PIPELINE:
+        RAG_PIPELINE = build_rag_pipeline_in_qdrant(
+            llm_provider=user_setting.llm_provider,
+            llm_model=user_setting.llm_model,
+            llm_api_token=user_setting.llm_api_token
+        )
+        logger.info(
+            f"Initiated RAG_PIPELINE with {user_setting.llm_provider}/{user_setting.llm_model}/{user_setting.llm_api_token}")
+
     return {
-        "document_store": "qdrant",
-        "num_documents": QDRANT_DOCUMENT_STORE.count_documents()
+        "settings_ready": True
     }
 
 
@@ -245,6 +277,7 @@ class SearchRequest(BaseModel):
 async def search_documents(request: SearchRequest):
     """
     Generate answers and save chat conversatios.
+    This endpoint is not used by fronten. Only to test the pipeline.
     """
     # user = await User.get(request.user_id)
     conversation = None
@@ -314,6 +347,17 @@ async def websocket_chat(websocket: WebSocket):
     """
     await websocket.accept()
     try:
+        global RAG_PIPELINE
+        if not RAG_PIPELINE:
+            user_setting = await get_user_settings()
+            RAG_PIPELINE = build_rag_pipeline_in_qdrant(
+                llm_provider=user_setting.llm_provider,
+                llm_model=user_setting.llm_model,
+                llm_api_token=user_setting.llm_api_token
+            )
+            logger.info(
+                f"Initiated RAG_PIPELINE with {user_setting.llm_provider}/{user_setting.llm_model}/{user_setting.llm_api_token}")
+
         while True:
             data = await websocket.receive_json()
             question = data["question"]
@@ -339,12 +383,6 @@ async def websocket_chat(websocket: WebSocket):
                 await conversation.insert()
 
             memories = format_chat_history(prev_messages)
-            user_setting = await get_user_settings()
-            RAG_PIPELINE = build_rag_pipeline_in_qdrant(
-                llm_provider=user_setting.llm_provider,
-                llm_model=user_setting.llm_model,
-                llm_api_token=user_setting.llm_api_token
-            )
             try:
                 answer_raw = RAG_PIPELINE.run(
                     data={
@@ -513,5 +551,15 @@ async def patch_settings(user_id: str, payload: PatchSettingsPayload):
     if getattr(payload, "llm_model", None) is not None:
         curr_user.llm_model = payload.llm_model
     await curr_user.save()
+
+    # update RAG pipeline based on settings
+    global RAG_PIPELINE
+    RAG_PIPELINE = build_rag_pipeline_in_qdrant(
+        llm_provider=curr_user.llm_provider,
+        llm_model=curr_user.llm_model,
+        llm_api_token=curr_user.llm_api_token
+    )
+    logger.info(
+        f"Updated RAG_PIPELINE with {curr_user.llm_provider}/{curr_user.llm_model}/{curr_user.llm_api_token}")
 
     return curr_user
