@@ -8,7 +8,12 @@ from datetime import datetime, UTC
 from celery import Celery
 from bunnet import PydanticObjectId
 from celery.signals import worker_process_init
-from app.services.pipelines import QDRANT_PREPROCESSING_PIPELINE_W_METADATA
+from app.services.pipelines import (
+    build_preprocessing_pipeline,
+    QDRANT_DOCUMENT_STORE,
+    SentenceTransformersDocumentEmbedder,
+    embedder_model
+)
 from app.models.status_models import SyncStatusBunnet
 from app.services.database import init_mongodb_bunnet, init_qdrant
 from app.api.utils import get_files_from_folder
@@ -30,13 +35,29 @@ app = Celery('sync_app',
              backend=os.getenv("REDIS_URL"))
 
 
+# Use a global pipeline instance for celery workers
+# This needs to init after loading environment variables
+SHARED_PREPROCESSING_PIPELINE = None
+
+
 @worker_process_init.connect
 def init_celery(**kwargs):
     """Initialize data stores globally for all tasks."""
     init_mongodb_bunnet()
-    print("Bunnet initiated.")
+    logger.info("Bunnet initiated.")
     init_qdrant()
-    print("Qdrant initiated.")
+    logger.info("Qdrant initiated.")
+
+    global SHARED_PREPROCESSING_PIPELINE
+    if not SHARED_PREPROCESSING_PIPELINE:
+        SHARED_PREPROCESSING_PIPELINE = build_preprocessing_pipeline(
+            document_store=QDRANT_DOCUMENT_STORE,
+            document_embedder=SentenceTransformersDocumentEmbedder(model=embedder_model),
+            add_metadata=True
+        )
+        logger.info("SHARED_PREPROCESSING_PIPELINE initiated.")
+    else:
+        logger.info("SHARED_PREPROCESSING_PIPELINE already initiated.")
 
 
 @app.task(bind=True)
@@ -44,6 +65,10 @@ def sync_folder(self, folder_path: str, actual_home_dir: str, sync_status_id: st
     """Sync documents in the given folder"""
 
     logger.info(f"sync_folder task ID is: {self.request.id}, {sync_status_id=}")
+
+    global SHARED_PREPROCESSING_PIPELINE
+    if not SHARED_PREPROCESSING_PIPELINE:
+        raise RuntimeError("SHARED_PREPROCESSING_PIPELINE not initialized!")
 
     files = get_files_from_folder(folder_path=folder_path, actual_home_dir=actual_home_dir)
 
@@ -56,7 +81,7 @@ def sync_folder(self, folder_path: str, actual_home_dir: str, sync_status_id: st
     for index, file_path in enumerate(files):
         try:
             source_file = str(file_path.resolve())
-            output = QDRANT_PREPROCESSING_PIPELINE_W_METADATA.run({
+            output = SHARED_PREPROCESSING_PIPELINE.run({
                 "file_type_router": {
                     "sources": [file_path],
                 },

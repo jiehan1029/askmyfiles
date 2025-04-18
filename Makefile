@@ -1,8 +1,13 @@
 BACKEND_DIR := backend
 FRONTEND_DIR := frontend
+
 LANGFUSE_DIR=./infra/langfuse
 LANGFUSE_COMPOSE_FILE=$(LANGFUSE_DIR)/docker-compose.yml
 LANGFUSE_OVERRIDE_FILE=$(LANGFUSE_DIR)/docker-compose.override.yaml
+MINIO_ENDPOINT=http://minio:9000
+MINIO_ACCESS_KEY=minio
+MINIO_SECRET_KEY=miniosecret
+BUCKET_NAME=langfuse
 
 .PHONY: \
 	run_backend \
@@ -18,10 +23,11 @@ LANGFUSE_OVERRIDE_FILE=$(LANGFUSE_DIR)/docker-compose.override.yaml
 	langfuse-restart \
 	langfuse-pull \
 	langfuse-override \
-	langfuse-network
+	langfuse-network \
+	langfuse-create-bucket
 
 # start api & databases & celery worker in docker
-run_backend: langfuse-network
+run_backend: langfuse-up
 	docker compose -f docker-compose.yaml up -d
 
 # stop all backend services
@@ -47,10 +53,10 @@ langfuse-override: langfuse-clone
 	@test -f $(LANGFUSE_OVERRIDE_FILE) || cp ./makefiles/langfuse.override.template.yaml $(LANGFUSE_OVERRIDE_FILE)
 
 # Bring up Langfuse stack
-langfuse-up: langfuse-clone langfuse-network langfuse-override
+langfuse-up: langfuse-clone langfuse-network langfuse-override langfuse-create-bucket
 	@if [ ! -f $(LANGFUSE_DIR)/.env ]; then \
-		cp ./makefiles/langfuse.env.dev.example $(LANGFUSE_DIR)/.env; \
-		echo "Copied langfuse.env.dev.example to .env"; \
+		cp ./makefiles/langfuse.env.dev $(LANGFUSE_DIR)/.env; \
+		echo "Copied langfuse.env.dev to .env"; \
 	fi
 	docker-compose -f $(LANGFUSE_COMPOSE_FILE) -f $(LANGFUSE_OVERRIDE_FILE) up -d
 
@@ -71,9 +77,24 @@ langfuse-pull:
 	docker-compose -f $(LANGFUSE_COMPOSE_FILE) -f $(LANGFUSE_OVERRIDE_FILE) pull
 
 langfuse-env:
-	cp ./makefiles/langfuse.env.dev.example $(LANGFUSE_DIR)/.env
+	cp ./makefiles/langfuse.env.dev $(LANGFUSE_DIR)/.env
 	echo "♻️  Reset Langfuse .env from .env.dev.example"
 
+# Must have a bucket in minio named "langfuse" before running langfuse-web
+langfuse-create-bucket: langfuse-network
+	@echo "🚀 Checking or creating bucket '$(BUCKET_NAME)' via Docker..."
+	@docker run --rm \
+		--network=langfuse-net \
+		minio/mc:latest \
+		mc alias set local $(MINIO_ENDPOINT) $(MINIO_ACCESS_KEY) $(MINIO_SECRET_KEY)
+	@docker run --rm \
+		--network=langfuse-net \
+		minio/mc:latest \
+		mc ls local/$(BUCKET_NAME) > /dev/null 2>&1 || docker run --rm \
+		--network=langfuse-net \
+		minio/mc:latest \
+		mc mb local/$(BUCKET_NAME)
+	@echo "Bucket $(BUCKET_NAME) created or already exists."
 
 install_api_local: ## install dependencies locally
 	cd $(BACKEND_DIR) && \

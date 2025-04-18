@@ -3,6 +3,7 @@ Haystack pipelines
 """
 
 import os
+import logging
 from typing import Any
 from haystack.components.writers import DocumentWriter
 from haystack.components.converters import MarkdownToDocument, PyPDFToDocument, TextFileToDocument
@@ -18,7 +19,7 @@ from app.services.document_stores import (
     IN_MEMORY_DOCUMENT_STORE,
     QDRANT_DOCUMENT_STORE
 )
-
+from haystack_integrations.components.connectors.langfuse import LangfuseConnector
 from haystack.document_stores.types import DuplicatePolicy, DocumentStore
 from haystack.components.retrievers.in_memory import InMemoryEmbeddingRetriever
 from haystack.components.generators.chat import HuggingFaceAPIChatGenerator
@@ -32,7 +33,8 @@ from haystack_integrations.components.generators.google_ai import GoogleAIGemini
 from haystack_integrations.components.generators.ollama import OllamaChatGenerator
 
 
-DOCUMENT_STORE_NAME = os.getenv("DOCUMENT_STORE_NAME", "qdrant")
+logger = logging.getLogger(__name__)
+
 
 # matching document & text embedders must use the same model
 embedder_model = "sentence-transformers/all-MiniLM-L6-v2"
@@ -59,7 +61,12 @@ def build_preprocessing_pipeline(
     """
     Return an indexing pipeline that loads the document store.
     """
+    logger.info(
+        f'langfuse env vars: {os.getenv("LANGFUSE_HOST")=}, {os.getenv("LANGFUSE_PUBLIC_KEY")=}, {os.getenv("LANGFUSE_SECRET_KEY")=}')
+
     preprocessing_pipeline = Pipeline()
+
+    preprocessing_pipeline.add_component("tracer", LangfuseConnector(name="Pre-processing pipeline"))
 
     text_file_converter = TextFileToDocument()
     markdown_converter = MarkdownToDocument()
@@ -120,6 +127,8 @@ def _build_rag_pipeline(
     """
     basic_rag_pipeline = Pipeline()
 
+    basic_rag_pipeline.add_component("tracer", LangfuseConnector(name="RAG pipeline"))
+
     # Add components to your pipeline
     basic_rag_pipeline.add_component("text_embedder", text_embedder)
     basic_rag_pipeline.add_component("retriever", retriever)
@@ -158,7 +167,6 @@ def _build_rag_pipeline(
     if llm_provider == "ollama":
         generator = OllamaChatGenerator(
             url=os.getenv("OLLAMA_LLM_BASE_URL"),
-            # model=os.getenv("OLLAMA_LLM_MODEL")
             model=llm_model
         )
     elif llm_provider == "huggingFace":
@@ -228,6 +236,8 @@ def build_summary_pipeline(
     """
     summary_pipeline = Pipeline()
 
+    summary_pipeline.add_component("tracer", LangfuseConnector(name="Chat summary pipeline"))
+
     # Add components to your pipeline
     user_message_template = [
         ChatMessage.from_user(
@@ -285,13 +295,3 @@ IN_MEMORY_PREPROCESSING_PIPELINE = build_preprocessing_pipeline(
     document_store=IN_MEMORY_DOCUMENT_STORE,
     document_embedder=SentenceTransformersDocumentEmbedder(model=embedder_model)
 )
-QDRANT_PREPROCESSING_PIPELINE = build_preprocessing_pipeline(
-    document_store=QDRANT_DOCUMENT_STORE,
-    document_embedder=SentenceTransformersDocumentEmbedder(model=embedder_model)
-)
-QDRANT_PREPROCESSING_PIPELINE_W_METADATA = build_preprocessing_pipeline(
-    document_store=QDRANT_DOCUMENT_STORE,
-    document_embedder=SentenceTransformersDocumentEmbedder(model=embedder_model),
-    add_metadata=True
-)
-
