@@ -10,13 +10,13 @@ MINIO_SECRET_KEY=miniosecret
 BUCKET_NAME=langfuse
 
 .PHONY: \
-	frontend_up \
-	run_backend \
-	run_ollama \
-	run_api_local \
-	stop_backend \
-	stop_ollama \
-	install_api_local \
+	frontend-up \
+	backend-up \
+	backend-down \
+	ollama-up \
+	ollama-down \
+	run-api-local \
+	install-api-local \
 	langfuse-clone \
 	langfuse-up \
 	langfuse-down \
@@ -27,22 +27,22 @@ BUCKET_NAME=langfuse
 	langfuse-network \
 	langfuse-create-bucket
 
-frontend_up: # run preview
+frontend-up: # run preview
 	cd ${FRONTEND_DIR} && npm run preview
 
 # start api & databases & celery worker in docker
-run_backend: langfuse-up
+backend-up: langfuse-up
 	docker compose -f docker-compose.yaml up -d
 
 # stop all backend services
-stop_backend:
-	docker compose -f docker-compose.yaml down && make stop_ollama && make langfuse-down
+backend-down:
+	docker compose -f docker-compose.yaml down && make ollama-down && make langfuse-down
 
 # start ollama and ollama-webui in docker
-run_ollama: langfuse-network
+ollama-up: langfuse-network
 	docker compose -f docker-compose-ollama.yaml up -d
 
-stop_ollama:
+ollama-down:
 	docker compose -f docker-compose-ollama.yaml down
 
 # Create network for Langfuse
@@ -100,7 +100,7 @@ langfuse-create-bucket: langfuse-network
 		mc mb local/$(BUCKET_NAME)
 	@echo "Bucket $(BUCKET_NAME) created or already exists."
 
-install_api_local: ## install dependencies locally
+install-api-local: ## install dependencies locally
 	cd $(BACKEND_DIR) && \
 	if ! command -v poetry >/dev/null/ 2>&1; then \
 		curl -sSL https://install.python-poetry.org | python3 -; \
@@ -108,7 +108,7 @@ install_api_local: ## install dependencies locally
 	poetry config virtualenvs.in-project true && \
 	poetry install --no-root
 
-run_api_local: ## start backend in localhost; must have install_api completed first
+run-api-local: ## start backend in localhost; must have install_api completed first
 	cd $(BACKEND_DIR) && \
 	APP_ENV=development poetry run uvicorn --host 0.0.0.0 --port 8000 app.api.main:app --reload
 

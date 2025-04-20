@@ -21,6 +21,11 @@ const DEFAULT_MODEL_MAP = {
     ollama: "mistral:7b"
 }
 
+const hideValue = (val: string | null | undefined) => {
+    if (val) return '***********'
+    return ''
+}
+
 export function SettingsView() {
     const [tokenInputDisabled, setTokenInputDisabled] = useState<boolean>(false)
     const [provider, setProvider] = useState<string>("gemini")
@@ -138,7 +143,7 @@ export function SettingsView() {
                 </div>
                 <div className="flex flex-row items-center justify-start" style={{ marginBottom: '12px'}}>
                     <div className="w-[100px]">API Token</div>
-                    <Input type="text" value={apiToken} disabled={tokenInputDisabled} className="w-[280px]" onChange={onChangeApiToken}/>
+                    <Input type="text" value={hideValue(apiToken)} disabled={tokenInputDisabled} className="w-[280px]" onChange={onChangeApiToken}/>
                 </div>
                 <div className="flex flex-row items-center justify-start" style={{ marginBottom: '12px'}}>
                     <div className="w-[100px]">Model</div>
