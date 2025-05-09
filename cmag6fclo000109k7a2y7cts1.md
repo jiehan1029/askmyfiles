@@ -9,7 +9,7 @@ tags: microservices, architecture, migration, email-server, postmortem
 
 ## Background & Requirements
 
-About two years ago, I led a project to build a new email microservice for our company. The existing system—built about 15 years ago—was embedded in a monolithic codebase using a now-obscure language. It sent customer emails and SMS messages reliably, but couldn’t support modern product requirements:
+About two years ago, I led a project to build a new email microservice for our company. The existing system—built about 15 years ago—was embedded in a monolithic codebase using a now-less-popular language. It sent customer emails and SMS messages reliably, but couldn’t support modern product requirements:
 
 * No user engagement tracking (opens/clicks)
     
